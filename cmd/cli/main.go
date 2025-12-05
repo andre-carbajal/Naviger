@@ -19,10 +19,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const BaseURL = "http://localhost:8080"
+var BaseURL string
 
 func printHelp() {
-	fmt.Println("Uso: mc-cli <comando> [argumentos]")
+	fmt.Println("Uso: mc-cli [opciones] <comando> [argumentos]")
+	fmt.Println("\nOpciones globales:")
+	fmt.Println("  --port <puerto>  Puerto del servidor (por defecto: 8080)")
 	fmt.Println("\nComandos disponibles:")
 	fmt.Println("  create         Crear un nuevo servidor.")
 	fmt.Println("                 --name: Nombre del servidor (obligatorio)")
@@ -41,6 +43,18 @@ func printHelp() {
 }
 
 func main() {
+	port := flag.Int("port", 8080, "Puerto del servidor")
+	flag.Usage = printHelp
+	flag.Parse()
+
+	BaseURL = fmt.Sprintf("http://localhost:%d", *port)
+
+	args := flag.Args()
+	if len(args) < 1 {
+		printHelp()
+		os.Exit(1)
+	}
+
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatalf("Error al obtener el directorio de configuración del usuario: %v", err)
@@ -69,36 +83,34 @@ func main() {
 	configPortStart := configPortsCmd.Int("start", 0, "Puerto inicial")
 	configPortEnd := configPortsCmd.Int("end", 0, "Puerto final")
 
-	if len(os.Args) < 2 {
-		printHelp()
-		os.Exit(1)
-	}
+	command := args[0]
+	cmdArgs := args[1:]
 
-	switch os.Args[1] {
+	switch command {
 	case "list":
-		listCmd.Parse(os.Args[2:])
+		listCmd.Parse(cmdArgs)
 		handleList()
 
 	case "create":
-		createCmd.Parse(os.Args[2:])
+		createCmd.Parse(cmdArgs)
 		handleCreate(*createName, *createVer, *createType, *createRam)
 
 	case "start":
-		startCmd.Parse(os.Args[2:])
+		startCmd.Parse(cmdArgs)
 		if startCmd.NArg() < 1 {
 			log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli start <UUID>")
 		}
 		handleStart(startCmd.Arg(0))
 
 	case "stop":
-		stopCmd.Parse(os.Args[2:])
+		stopCmd.Parse(cmdArgs)
 		if stopCmd.NArg() < 1 {
 			log.Fatal("Error: Debes especificar el ID del servidor.")
 		}
 		handleStop(stopCmd.Arg(0))
 
 	case "backup":
-		backupCmd.Parse(os.Args[2:])
+		backupCmd.Parse(cmdArgs)
 		if backupCmd.NArg() < 1 {
 			log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli backup <UUID> [nombre-opcional]")
 		}
@@ -110,14 +122,14 @@ func main() {
 		handleBackup(serverID, backupName)
 
 	case "logs":
-		logsCmd.Parse(os.Args[2:])
+		logsCmd.Parse(cmdArgs)
 		if logsCmd.NArg() < 1 {
 			log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli logs <UUID>")
 		}
 		handleLogs(logsCmd.Arg(0))
 
 	case "config":
-		if len(os.Args) < 3 {
+		if len(cmdArgs) < 1 {
 			fmt.Println("Uso: mc-cli config [ports]")
 			fmt.Println("\nSubcomandos:")
 			fmt.Println("  ports          Ver o modificar rango de puertos")
@@ -125,25 +137,28 @@ func main() {
 			os.Exit(1)
 		}
 
-		switch os.Args[2] {
+		subcommand := cmdArgs[0]
+		subcommandArgs := cmdArgs[1:]
+
+		switch subcommand {
 		case "ports":
-			configPortsCmd.Parse(os.Args[3:])
+			configPortsCmd.Parse(subcommandArgs)
 			if *configPortStart == 0 && *configPortEnd == 0 {
 				handleGetPortRange()
 			} else {
 				handleSetPortRange(*configPortStart, *configPortEnd)
 			}
 		default:
-			fmt.Println("Subcomando desconocido:", os.Args[2])
+			fmt.Println("Subcomando desconocido:", subcommand)
 			os.Exit(1)
 		}
 
 	case "help":
-		helpCmd.Parse(os.Args[2:])
+		helpCmd.Parse(cmdArgs)
 		printHelp()
 
 	default:
-		fmt.Println("Comando desconocido:", os.Args[1])
+		fmt.Println("Comando desconocido:", command)
 		printHelp()
 		os.Exit(1)
 	}

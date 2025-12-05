@@ -29,7 +29,7 @@ func NewAPIServer(mgr *server.Manager, sup *runner.Supervisor, store *storage.SQ
 	}
 }
 
-func (api *Server) Start(port string) error {
+func (api *Server) Start(listenAddr string) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /servers", api.handleListServers)
@@ -46,8 +46,8 @@ func (api *Server) Start(port string) error {
 
 	handler := api.corsMiddleware(mux)
 
-	fmt.Printf("API escuchando en http://0.0.0.0:%s\n", port)
-	return http.ListenAndServe(":"+port, handler)
+	fmt.Printf("API escuchando en http://0.0.0.0%s\n", listenAddr)
+	return http.ListenAndServe(listenAddr, handler)
 }
 
 func (api *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
