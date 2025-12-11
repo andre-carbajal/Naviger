@@ -76,3 +76,17 @@ func (m *Manager) CreateServer(name string, loaderType string, version string, r
 func (m *Manager) ListServers() ([]domain.Server, error) {
 	return m.Store.ListServers()
 }
+
+func (m *Manager) DeleteServer(id string) error {
+	serverDir := filepath.Join(m.ServersPath, id)
+
+	if err := os.RemoveAll(serverDir); err != nil {
+		return fmt.Errorf("error eliminando archivos del servidor: %w", err)
+	}
+
+	if err := m.Store.DeleteServer(id); err != nil {
+		return fmt.Errorf("error eliminando servidor de la base de datos: %w", err)
+	}
+
+	return nil
+}

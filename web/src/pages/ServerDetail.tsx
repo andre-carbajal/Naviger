@@ -1,0 +1,144 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Play, Square, Settings, HardDrive } from 'lucide-react';
+import { api } from '../services/api';
+import type { Server } from '../types';
+import { useConsole } from '../hooks/useConsole';
+import ConsoleView from '../components/ConsoleView';
+
+const ServerDetail: React.FC = () => {
+    const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
+    const [server, setServer] = useState<Server | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [commandInput, setCommandInput] = useState('');
+
+    const { logs, sendCommand, isConnected } = useConsole(id || '');
+
+    useEffect(() => {
+        if (!id) return;
+        const fetchServer = async () => {
+            try {
+                const res = await api.getServers();
+                const found = res.data.find(s => s.id === id);
+                if (found) setServer(found);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchServer();
+        const interval = setInterval(fetchServer, 2000);
+        return () => clearInterval(interval);
+    }, [id]);
+
+    const handleStart = async () => {
+        if (!server) return;
+        try {
+            await api.startServer(server.id);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleStop = async () => {
+        if (!server) return;
+        try {
+            await api.stopServer(server.id);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleCommandSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!commandInput.trim()) return;
+        sendCommand(commandInput);
+        setCommandInput('');
+    };
+
+    if (loading) return <div>Loading...</div>;
+    if (!server) return <div>Server not found</div>;
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'RUNNING': return '#4ade80';
+            case 'STARTING': return '#facc15';
+            case 'STOPPED': return '#f87171';
+            default: return '#888';
+        }
+    };
+
+    return (
+        <div className="server-detail" style={{ height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <button className="btn-secondary" onClick={() => navigate('/')} style={{ padding: '8px' }}>
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {server.name}
+                            <span style={{ fontSize: '0.9rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: getStatusColor(server.status), color: '#000', fontWeight: 'bold' }}>
+                                {server.status}
+                            </span>
+                        </h1>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                            {server.loader} {server.version} • {server.ram}MB RAM • Port {server.port}
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {server.status === 'STOPPED' ? (
+                        <button onClick={handleStart} style={{ backgroundColor: '#166534', gap: '8px', display: 'flex', alignItems: 'center' }}>
+                            <Play size={18} /> Start
+                        </button>
+                    ) : (
+                        <button onClick={handleStop} style={{ backgroundColor: '#991b1b', gap: '8px', display: 'flex', alignItems: 'center' }} disabled={server.status === 'STARTING'}>
+                            <Square size={18} /> Stop
+                        </button>
+                    )}
+                    <button className="btn-secondary">
+                        <Settings size={18} />
+                    </button>
+                    <button className="btn-secondary">
+                        <HardDrive size={18} />
+                    </button>
+                </div>
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 5px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Console</span>
+                    <span style={{ fontSize: '0.8rem', color: isConnected ? '#4ade80' : '#f87171' }}>
+                        {isConnected ? '● Connected' : '○ Disconnected'}
+                    </span>
+                </div>
+
+                <div style={{ flex: 1, minHeight: 0, border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
+                    <ConsoleView logs={logs} />
+                </div>
+
+                <form onSubmit={handleCommandSubmit} style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                        type="text"
+                        value={commandInput}
+                        onChange={(e) => setCommandInput(e.target.value)}
+                        className="form-input"
+                        placeholder="Type a command..."
+                        style={{ flex: 1 }}
+                        disabled={!isConnected}
+                    />
+                    <button type="submit" disabled={!isConnected || !commandInput.trim()}>
+                        Send
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+export default ServerDetail;

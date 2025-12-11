@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"mc-manager/internal/domain"
+	"strconv"
 
 	_ "github.com/glebarez/go-sqlite"
 )
@@ -115,6 +116,11 @@ func (s *SQLiteStore) GetServerByID(id string) (*domain.Server, error) {
 	return &srv, nil
 }
 
+func (s *SQLiteStore) DeleteServer(id string) error {
+	_, err := s.db.Exec("DELETE FROM servers WHERE id = ?", id)
+	return err
+}
+
 func (s *SQLiteStore) UpdateStatus(id string, status string) error {
 	_, err := s.db.Exec("UPDATE servers SET status = ? WHERE id = ?", status, id)
 	if err != nil {
@@ -140,7 +146,7 @@ func (s *SQLiteStore) SetSetting(key string, value string) error {
 	return err
 }
 
-func (s *SQLiteStore) GetPortRange() (start int, end int, err error) {
+func (s *SQLiteStore) GetPortRange() (int, int, error) {
 	startStr, err := s.GetSetting("port_range_start")
 	if err != nil {
 		return 0, 0, err
@@ -151,18 +157,17 @@ func (s *SQLiteStore) GetPortRange() (start int, end int, err error) {
 		return 0, 0, err
 	}
 
-	var startPort, endPort int
-	_, err = fmt.Sscanf(startStr, "%d", &startPort)
+	start, err := strconv.Atoi(startStr)
 	if err != nil {
 		return 0, 0, fmt.Errorf("error parseando port_range_start: %w", err)
 	}
 
-	_, err = fmt.Sscanf(endStr, "%d", &endPort)
+	end, err := strconv.Atoi(endStr)
 	if err != nil {
 		return 0, 0, fmt.Errorf("error parseando port_range_end: %w", err)
 	}
 
-	return startPort, endPort, nil
+	return start, end, nil
 }
 
 func (s *SQLiteStore) SetPortRange(start int, end int) error {

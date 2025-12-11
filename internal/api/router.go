@@ -34,6 +34,7 @@ func (api *Server) Start(listenAddr string) error {
 
 	mux.HandleFunc("GET /servers", api.handleListServers)
 	mux.HandleFunc("POST /servers", api.handleCreateServer)
+	mux.HandleFunc("DELETE /servers/{id}", api.handleDeleteServer)
 
 	mux.HandleFunc("POST /servers/{id}/start", api.handleStartServer)
 	mux.HandleFunc("POST /servers/{id}/stop", api.handleStopServer)
@@ -48,6 +49,21 @@ func (api *Server) Start(listenAddr string) error {
 
 	fmt.Printf("API escuchando en http://0.0.0.0%s\n", listenAddr)
 	return http.ListenAndServe(listenAddr, handler)
+}
+
+func (api *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Falta ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := api.Manager.DeleteServer(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (api *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
