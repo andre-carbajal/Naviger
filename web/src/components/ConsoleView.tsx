@@ -1,13 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import { Terminal } from 'xterm';
-import { FitAddon } from 'xterm-addon-fit';
+import React, {useEffect, useRef} from 'react';
+import {Terminal} from 'xterm';
+import {FitAddon} from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 
 interface ConsoleViewProps {
     logs: string[];
 }
 
-const ConsoleView: React.FC<ConsoleViewProps> = ({ logs }) => {
+const ConsoleView: React.FC<ConsoleViewProps> = ({logs}) => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -80,7 +80,7 @@ const ConsoleView: React.FC<ConsoleViewProps> = ({ logs }) => {
                 overflow: 'hidden'
             }}
         >
-            <div ref={terminalRef} style={{ height: '100%', width: '100%' }} />
+            <div ref={terminalRef} style={{height: '100%', width: '100%'}}/>
         </div>
     );
 };

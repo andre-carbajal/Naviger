@@ -34,6 +34,8 @@ func (api *Server) Start(listenAddr string) error {
 
 	mux.HandleFunc("GET /servers", api.handleListServers)
 	mux.HandleFunc("POST /servers", api.handleCreateServer)
+	mux.HandleFunc("GET /servers/{id}", api.handleGetServer)
+	mux.HandleFunc("PUT /servers/{id}", api.handleUpdateServer)
 	mux.HandleFunc("DELETE /servers/{id}", api.handleDeleteServer)
 
 	mux.HandleFunc("POST /servers/{id}/start", api.handleStartServer)
@@ -49,6 +51,50 @@ func (api *Server) Start(listenAddr string) error {
 
 	fmt.Printf("API escuchando en http://0.0.0.0%s\n", listenAddr)
 	return http.ListenAndServe(listenAddr, handler)
+}
+
+func (api *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Falta ID", http.StatusBadRequest)
+		return
+	}
+
+	srv, err := api.Manager.GetServer(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if srv == nil {
+		http.Error(w, "Servidor no encontrado", http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(srv)
+}
+
+func (api *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Falta ID", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Name *string `json:"name"`
+		RAM  *int    `json:"ram"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		return
+	}
+
+	if err := api.Store.UpdateServer(id, req.Name, req.RAM); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (api *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +125,7 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name    string `json:"name"`
 		Version string `json:"version"`
-		Type    string `json:"type"`
+		Loader  string `json:"loader"`
 		RAM     int    `json:"ram"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -87,7 +133,7 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	srv, err := api.Manager.CreateServer(req.Name, req.Type, req.Version, req.RAM)
+	srv, err := api.Manager.CreateServer(req.Name, req.Loader, req.Version, req.RAM)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

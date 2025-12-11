@@ -73,6 +73,10 @@ func (m *Manager) CreateServer(name string, loaderType string, version string, r
 	return newServer, nil
 }
 
+func (m *Manager) GetServer(id string) (*domain.Server, error) {
+	return m.Store.GetServerByID(id)
+}
+
 func (m *Manager) ListServers() ([]domain.Server, error) {
 	return m.Store.ListServers()
 }

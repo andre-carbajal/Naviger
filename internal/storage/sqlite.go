@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mc-manager/internal/domain"
 	"strconv"
+	"strings"
 
 	_ "github.com/glebarez/go-sqlite"
 )
@@ -81,6 +82,30 @@ func (s *SQLiteStore) SaveServer(srv *domain.Server) error {
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.Exec(query, srv.ID, srv.Name, srv.Version, srv.Loader, srv.Port, srv.RAM, srv.Status, srv.CreatedAt)
+	return err
+}
+
+func (s *SQLiteStore) UpdateServer(id string, name *string, ram *int) error {
+	if name == nil && ram == nil {
+		return errors.New("no fields to update")
+	}
+
+	var parts []string
+	var args []interface{}
+
+	if name != nil {
+		parts = append(parts, "name = ?")
+		args = append(args, *name)
+	}
+	if ram != nil {
+		parts = append(parts, "ram = ?")
+		args = append(args, *ram)
+	}
+
+	query := fmt.Sprintf("UPDATE servers SET %s WHERE id = ?", strings.Join(parts, ", "))
+	args = append(args, id)
+
+	_, err := s.db.Exec(query, args...)
 	return err
 }
 

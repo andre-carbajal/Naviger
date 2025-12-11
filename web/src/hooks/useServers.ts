@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
-import type { Server } from '../types';
+import {useCallback, useEffect, useState} from 'react';
+import {api} from '../services/api';
+import type {Server} from '../types';
 
 export const useServers = () => {
     const [servers, setServers] = useState<Server[]>([]);
@@ -9,7 +9,7 @@ export const useServers = () => {
     const fetchServers = useCallback(async () => {
         try {
             const response = await api.getServers();
-            setServers(response.data);
+            setServers(response.data || []);
         } catch (err) {
             console.error(err);
         } finally {
@@ -17,7 +17,7 @@ export const useServers = () => {
         }
     }, []);
 
-    const createServer = async (data: any) => {
+    const createServer = async (data: { name: string; loader: string; version: string; ram: number }) => {
         try {
             await api.createServer(data);
             await fetchServers();
@@ -30,7 +30,7 @@ export const useServers = () => {
 
     const startServer = async (id: string) => {
         try {
-            setServers(prev => prev.map(s => s.id === id ? { ...s, status: 'STARTING' } : s));
+            setServers(prev => prev.map(s => s.id === id ? {...s, status: 'STARTING'} : s));
             await api.startServer(id);
         } catch (err) {
             console.error(err);
@@ -63,5 +63,5 @@ export const useServers = () => {
         return () => clearInterval(interval);
     }, [fetchServers]);
 
-    return { servers, loading, createServer, startServer, stopServer, deleteServer, refresh: fetchServers };
+    return {servers, loading, createServer, startServer, stopServer, deleteServer, refresh: fetchServers};
 };

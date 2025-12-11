@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import React, {useState} from 'react';
+import {X} from 'lucide-react';
 
 interface CreateModalProps {
     isOpen: boolean;
@@ -7,7 +7,7 @@ interface CreateModalProps {
     onCreate: (data: { name: string; loader: string; version: string; ram: number }) => void;
 }
 
-const CreateModal: React.FC<CreateModalProps> = ({ isOpen, onClose, onCreate }) => {
+const CreateModal: React.FC<CreateModalProps> = ({isOpen, onClose, onCreate}) => {
     const [name, setName] = useState('');
     const [loader, setLoader] = useState('vanilla');
     const [version, setVersion] = useState('1.20.1');
@@ -17,9 +17,8 @@ const CreateModal: React.FC<CreateModalProps> = ({ isOpen, onClose, onCreate }) 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onCreate({ name, loader, version, ram });
+        onCreate({name, loader, version, ram});
         onClose();
-        // Reset form
         setName('');
         setLoader('vanilla');
         setVersion('1.20.1');
@@ -31,8 +30,8 @@ const CreateModal: React.FC<CreateModalProps> = ({ isOpen, onClose, onCreate }) 
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <div className="modal-title">Create New Server</div>
-                    <button className="btn-secondary" onClick={onClose} style={{ border: 'none', padding: '5px' }}>
-                        <X size={20} />
+                    <button className="btn-secondary" onClick={onClose} style={{border: 'none', padding: '5px'}}>
+                        <X size={20}/>
                     </button>
                 </div>
                 <form onSubmit={handleSubmit}>
@@ -48,7 +47,7 @@ const CreateModal: React.FC<CreateModalProps> = ({ isOpen, onClose, onCreate }) 
                         />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
                         <div className="form-group">
                             <label>Loader</label>
                             <select className="form-select" value={loader} onChange={(e) => setLoader(e.target.value)}>
@@ -65,7 +64,7 @@ const CreateModal: React.FC<CreateModalProps> = ({ isOpen, onClose, onCreate }) 
                                 className="form-input"
                                 value={version}
                                 onChange={(e) => setVersion(e.target.value)}
-                                placeholder="1.20.4"
+                                placeholder="1.21"
                                 required
                             />
                         </div>

@@ -33,7 +33,6 @@ func UpdateServerProperties(serverDir string, port int) error {
 	}
 
 	props["server-port"] = fmt.Sprintf("%d", port)
-	// props["online-mode"] = "false"
 
 	found := false
 	for _, k := range order {

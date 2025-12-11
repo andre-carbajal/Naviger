@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import {useEffect, useRef, useState} from 'react';
 
 export const useConsole = (serverId: string) => {
     const ws = useRef<WebSocket | null>(null);
@@ -41,7 +41,7 @@ export const useConsole = (serverId: string) => {
 
     const sendCommand = (cmd: string) => {
         if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-            ws.current.send(cmd);
+            ws.current.send(cmd + '\n');
         } else {
             console.warn('WebSocket not connected, cannot send command');
         }
@@ -51,5 +51,5 @@ export const useConsole = (serverId: string) => {
         setLogs([]);
     }
 
-    return { logs, sendCommand, isConnected, clearLogs };
+    return {logs, sendCommand, isConnected, clearLogs};
 };

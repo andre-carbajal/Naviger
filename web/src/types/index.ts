@@ -5,5 +5,5 @@ export interface Server {
     loader: string;
     port: number;
     ram: number;
-    status: "STOPPED" | "RUNNING" | "STARTING";
+    status: "STOPPED" | "RUNNING" | "STARTING" | "STOPPING";
 }

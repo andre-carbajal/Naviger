@@ -1,6 +1,6 @@
 import React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Server, Settings, Terminal } from 'lucide-react';
+import {NavLink, Outlet} from 'react-router-dom';
+import {LayoutDashboard, Server, Settings, Terminal} from 'lucide-react';
 import '../App.css';
 
 const Layout: React.FC = () => {
@@ -8,20 +8,20 @@ const Layout: React.FC = () => {
         <div className="layout">
             <aside className="sidebar">
                 <div className="brand">
-                    <Terminal size={24} />
+                    <Terminal size={24}/>
                     <span>MC Manager</span>
                 </div>
                 <nav>
-                    <NavLink to="/" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-                        <LayoutDashboard size={20} />
+                    <NavLink to="/" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
+                        <LayoutDashboard size={20}/>
                         <span>Dashboard</span>
                     </NavLink>
-                    <NavLink to="/servers" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-                        <Server size={20} />
+                    <NavLink to="/servers" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
+                        <Server size={20}/>
                         <span>Servers</span>
                     </NavLink>
-                    <NavLink to="/settings" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-                        <Settings size={20} />
+                    <NavLink to="/settings" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
+                        <Settings size={20}/>
                         <span>Settings</span>
                     </NavLink>
                 </nav>
@@ -31,7 +31,7 @@ const Layout: React.FC = () => {
                     <div className="user-info">Admin</div>
                 </header>
                 <div className="page-content">
-                    <Outlet />
+                    <Outlet/>
                 </div>
             </main>
         </div>

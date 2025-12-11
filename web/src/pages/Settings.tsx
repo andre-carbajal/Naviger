@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { api } from '../services/api';
+import React, {useEffect, useState} from 'react';
+import {api} from '../services/api';
 
 const Settings: React.FC = () => {
-    const [portRange, setPortRange] = useState({ start: 0, end: 0 });
-    const [initialPortRange, setInitialPortRange] = useState({ start: 0, end: 0 });
+    const [portRange, setPortRange] = useState({start: 0, end: 0});
+    const [initialPortRange, setInitialPortRange] = useState({start: 0, end: 0});
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
@@ -24,8 +24,8 @@ const Settings: React.FC = () => {
     }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        const newPortRange = { ...portRange, [name]: parseInt(value, 10) };
+        const {name, value} = e.target;
+        const newPortRange = {...portRange, [name]: parseInt(value, 10)};
         setPortRange(newPortRange);
         setHasChanges(JSON.stringify(newPortRange) !== JSON.stringify(initialPortRange));
     };
@@ -47,15 +47,15 @@ const Settings: React.FC = () => {
 
     return (
         <div className="settings-page">
-            <h1 style={{ marginBottom: '30px' }}>Settings</h1>
+            <h1 style={{marginBottom: '30px'}}>Settings</h1>
 
-            <div className="card" style={{ maxWidth: '600px' }}>
-                <h2 style={{ fontSize: '1.2rem', marginTop: 0 }}>Network Configuration</h2>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
+            <div className="card" style={{maxWidth: '600px'}}>
+                <h2 style={{fontSize: '1.2rem', marginTop: 0}}>Network Configuration</h2>
+                <p style={{color: 'var(--text-muted)', marginBottom: '20px'}}>
                     Define the range of ports that the manager can assign to new servers.
                 </p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
                     <div className="form-group">
                         <label>Start Port</label>
                         <input
@@ -78,7 +78,7 @@ const Settings: React.FC = () => {
                     </div>
                 </div>
 
-                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{marginTop: '20px', display: 'flex', justifyContent: 'flex-end'}}>
                     <button
                         className="btn btn-primary"
                         onClick={handleSave}

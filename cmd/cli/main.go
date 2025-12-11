@@ -29,7 +29,7 @@ func printHelp() {
 	fmt.Println("  create         Crear un nuevo servidor.")
 	fmt.Println("                 --name: Nombre del servidor (obligatorio)")
 	fmt.Println("                 --version: Versión de Minecraft (obligatorio)")
-	fmt.Println("                 --type: Tipo de loader, ej: vanilla (obligatorio)")
+	fmt.Println("                 --loader: Tipo de loader, ej: vanilla (obligatorio)")
 	fmt.Println("                 --ram: RAM en MB (obligatorio)")
 	fmt.Println("\n  list           Listar todos los servidores.")
 	fmt.Println("  start <id>     Iniciar un servidor por su ID.")
@@ -77,7 +77,7 @@ func main() {
 
 	createName := createCmd.String("name", "", "Nombre del servidor")
 	createVer := createCmd.String("version", "", "Versión de Minecraft")
-	createType := createCmd.String("type", "", "Tipo (vanilla)")
+	createLoader := createCmd.String("loader", "", "Loader (vanilla, paper, etc.)")
 	createRam := createCmd.Int("ram", 0, "RAM en MB")
 
 	configPortStart := configPortsCmd.Int("start", 0, "Puerto inicial")
@@ -93,7 +93,7 @@ func main() {
 
 	case "create":
 		createCmd.Parse(cmdArgs)
-		handleCreate(*createName, *createVer, *createType, *createRam)
+		handleCreate(*createName, *createVer, *createLoader, *createRam)
 
 	case "start":
 		startCmd.Parse(cmdArgs)
@@ -257,18 +257,18 @@ func handleList() {
 	}
 }
 
-func handleCreate(name, version, loaderType string, ram int) {
-	if name == "" || version == "" || loaderType == "" || ram == 0 {
+func handleCreate(name, version, loader string, ram int) {
+	if name == "" || version == "" || loader == "" || ram == 0 {
 		log.Println("Error: Faltan argumentos para crear el servidor.")
 		fmt.Println("\nUso correcto:")
-		fmt.Println("  mc-cli create --name \"Mi Servidor\" --version \"1.20.1\" --type \"vanilla\" --ram 2048")
+		fmt.Println("  mc-cli create --name \"Mi Servidor\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048")
 		os.Exit(1)
 	}
 
 	payload := map[string]interface{}{
 		"name":    name,
 		"version": version,
-		"type":    loaderType,
+		"loader":  loader,
 		"ram":     ram,
 	}
 	jsonData, _ := json.Marshal(payload)
