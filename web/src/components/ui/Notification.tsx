@@ -5,7 +5,7 @@ interface NotificationProps {
     onClose: () => void;
 }
 
-const Notification: React.FC<NotificationProps> = ({ message, onClose }) => {
+const Notification: React.FC<NotificationProps> = ({message, onClose}) => {
     return (
         <div className="notification">
             <p>{message}</p>

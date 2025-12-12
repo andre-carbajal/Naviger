@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from './ui/Button';
-import type { Server } from '../types';
+import React, {useEffect, useState} from 'react';
+import {Button} from './ui/Button';
+import type {Server} from '../types';
 
 interface CreateBackupModalProps {
     isOpen: boolean;
@@ -11,12 +11,12 @@ interface CreateBackupModalProps {
 }
 
 const CreateBackupModal: React.FC<CreateBackupModalProps> = ({
-    isOpen,
-    onClose,
-    onCreate,
-    servers,
-    defaultServerId
-}) => {
+                                                                 isOpen,
+                                                                 onClose,
+                                                                 onCreate,
+                                                                 servers,
+                                                                 defaultServerId
+                                                             }) => {
     const [name, setName] = useState('');
     const [selectedServer, setSelectedServer] = useState(defaultServerId || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,7 +75,8 @@ const CreateBackupModal: React.FC<CreateBackupModalProps> = ({
                     )}
 
                     <div className="form-group">
-                        <label>Backup Name <span style={{ color: 'var(--text-muted)', fontSize: '0.8em' }}>(Optional)</span></label>
+                        <label>Backup Name <span
+                            style={{color: 'var(--text-muted)', fontSize: '0.8em'}}>(Optional)</span></label>
                         <input
                             type="text"
                             className="form-input"

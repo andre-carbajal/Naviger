@@ -78,18 +78,18 @@ const ServerDetail: React.FC = () => {
         <div className="server-detail">
             <div className="modal-header">
                 <div>
-                    <h1>
-                        {server.name}
+                    <div style={{display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '8px'}}>
+                        <h1 style={{margin: 0}}>{server.name}</h1>
                         <span className={`status-badge status-${server.status.toLowerCase()}`}>
                             {server.status}
                         </span>
-                    </h1>
+                    </div>
                     <div>
                         {server.loader} {server.version} • {server.ram}MB RAM • Port {server.port}
                     </div>
                 </div>
 
-                <div>
+                <div style={{display: 'flex', gap: '10px'}}>
                     {server.status === 'STOPPED' ? (
                         <Button onClick={handleStart}>
                             <Play size={18}/> Start
@@ -103,39 +103,45 @@ const ServerDetail: React.FC = () => {
                     <Button variant="secondary" onClick={() => setIsEditModalOpen(true)}>
                         <Settings size={18}/>
                     </Button>
-                    <Button asChild variant="secondary">
-                        <Link to={`/servers/${server.id}/backups`}>
-                            <HardDrive size={18}/>
-                        </Link>
-                    </Button>
+                    <Link to={`/servers/${server.id}/backups`} className="btn btn-secondary"
+                          style={{textDecoration: 'none'}}>
+                        <HardDrive size={18}/>
+                    </Link>
                 </div>
             </div>
 
-            <div>
-                <div>
-                    <span>Console</span>
-                    <span>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <h2 style={{margin: 0, fontSize: '1.2rem'}}>Console</h2>
+                    <span style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '0.9rem',
+                        color: isConnected ? '#4ade80' : 'var(--text-muted)'
+                    }}>
                         {isConnected ? '● Connected' : '○ Disconnected'}
                     </span>
                 </div>
 
-                <div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
                     <ConsoleView logs={logs}/>
-                </div>
 
-                <form onSubmit={handleCommandSubmit}>
-                    <input
-                        type="text"
-                        value={commandInput}
-                        onChange={(e) => setCommandInput(e.target.value)}
-                        className="form-input"
-                        placeholder="Type a command..."
-                        disabled={!isConnected}
-                    />
-                    <Button type="submit" disabled={!isConnected || !commandInput.trim()}>
-                        Send
-                    </Button>
-                </form>
+                    <form onSubmit={handleCommandSubmit} style={{display: 'flex', gap: '10px'}}>
+                        <input
+                            type="text"
+                            value={commandInput}
+                            onChange={(e) => setCommandInput(e.target.value)}
+                            className="form-input"
+                            placeholder="Type a command..."
+                            disabled={!isConnected}
+                            style={{flex: 1}}
+                        />
+                        <Button type="submit" disabled={!isConnected || !commandInput.trim()}>
+                            Send
+                        </Button>
+                    </form>
+                </div>
             </div>
 
             <EditServerModal

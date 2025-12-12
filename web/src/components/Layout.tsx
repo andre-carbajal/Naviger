@@ -16,7 +16,8 @@ const Layout: React.FC = () => {
                         <LayoutDashboard size={20}/>
                         <span>Dashboard</span>
                     </NavLink>
-                    <NavLink to="/servers/backups/all" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
+                    <NavLink to="/servers/backups/all"
+                             className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
                         <DatabaseBackup size={20}/>
                         <span>Backups</span>
                     </NavLink>

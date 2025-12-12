@@ -1,8 +1,8 @@
 import React from 'react';
-import { Play, Square, Trash2, Terminal } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import type { Server } from '../types';
-import { Button } from './ui/Button';
+import {Play, Square, Terminal, Trash2} from 'lucide-react';
+import {Link} from 'react-router-dom';
+import type {Server} from '../types';
+import {Button} from './ui/Button';
 
 interface ServerCardProps {
     server: Server;
@@ -11,7 +11,7 @@ interface ServerCardProps {
     onDelete: (id: string) => void;
 }
 
-const ServerCard: React.FC<ServerCardProps> = ({ server, onStart, onStop, onDelete }) => {
+const ServerCard: React.FC<ServerCardProps> = ({server, onStart, onStop, onDelete}) => {
     return (
         <div className="card">
             <div className="card-header">
@@ -24,16 +24,16 @@ const ServerCard: React.FC<ServerCardProps> = ({ server, onStart, onStop, onDele
             </div>
             <div className="card-actions">
                 <Button onClick={() => onStart(server.id)} disabled={server.status === 'RUNNING'}>
-                    <Play size={16} /> Start
+                    <Play size={16}/> Start
                 </Button>
                 <Button variant="secondary" onClick={() => onStop(server.id)} disabled={server.status === 'STOPPED'}>
-                    <Square size={16} fill="currentColor" /> Stop
+                    <Square size={16} fill="currentColor"/> Stop
                 </Button>
-                <Link to={`/servers/${server.id}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-                    <Terminal size={16} /> Console
+                <Link to={`/servers/${server.id}`} className="btn btn-secondary" style={{textDecoration: 'none'}}>
+                    <Terminal size={16}/> Console
                 </Link>
                 <Button variant="danger" onClick={() => onDelete(server.id)}>
-                    <Trash2 size={16} /> Delete
+                    <Trash2 size={16}/> Delete
                 </Button>
             </div>
         </div>
