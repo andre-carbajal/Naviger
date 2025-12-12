@@ -422,6 +422,10 @@ nav {
     animation: fadeIn 0.5s, fadeOut 0.5s 4.5s;
 }
 
+.notification.error {
+    background-color: var(--danger-color);
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;

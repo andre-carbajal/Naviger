@@ -1,5 +1,5 @@
-import {useEffect, useState} from 'react';
-import {BrowserRouter, Route, Routes} from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import ServerDetail from './pages/ServerDetail';
@@ -7,15 +7,16 @@ import Settings from './pages/Settings';
 import Backups from './pages/Backups';
 
 const App = () => {
-    const [notification, setNotification] = useState<{ message: string; visible: boolean }>({
+    const [notification, setNotification] = useState<{ message: string; visible: boolean; type: 'info' | 'error' }>({
         message: '',
-        visible: false
+        visible: false,
+        type: 'info'
     });
 
     useEffect(() => {
         const handleNetworkError = (event: Event) => {
             const customEvent = event as CustomEvent;
-            setNotification({message: customEvent.detail.message, visible: true});
+            setNotification({ message: customEvent.detail.message, visible: true, type: 'error' });
         };
 
         window.addEventListener('network-error', handleNetworkError);
@@ -28,26 +29,26 @@ const App = () => {
     useEffect(() => {
         if (notification.visible) {
             const timer = setTimeout(() => {
-                setNotification({...notification, visible: false});
+                setNotification(prev => ({ ...prev, visible: false }));
             }, 5000);
             return () => clearTimeout(timer);
         }
-    }, [notification]);
+    }, [notification.visible]);
 
     return (
         <BrowserRouter>
             {notification.visible && (
-                <div className="notification">
+                <div className={`notification ${notification.type}`}>
                     {notification.message}
                 </div>
             )}
             <Routes>
-                <Route path="/" element={<Layout/>}>
-                    <Route index element={<Dashboard/>}/>
-                    <Route path="servers/backups/all" element={<Backups/>}/>
-                    <Route path="servers/:id" element={<ServerDetail/>}/>
-                    <Route path="servers/:id/backups" element={<Backups/>}/>
-                    <Route path="settings" element={<Settings/>}/>
+                <Route path="/" element={<Layout />}>
+                    <Route index element={<Dashboard />} />
+                    <Route path="servers/backups/all" element={<Backups />} />
+                    <Route path="servers/:id" element={<ServerDetail />} />
+                    <Route path="servers/:id/backups" element={<Backups />} />
+                    <Route path="settings" element={<Settings />} />
                 </Route>
             </Routes>
         </BrowserRouter>

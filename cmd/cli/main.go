@@ -25,23 +25,21 @@ func printHelp() {
 	fmt.Println("Uso: mc-cli [opciones] <comando> [argumentos]")
 	fmt.Println("\nOpciones globales:")
 	fmt.Println("  --port <puerto>  Puerto del servidor (por defecto: 8080)")
-	fmt.Println("\nComandos disponibles:")
-	fmt.Println("  create         Crear un nuevo servidor.")
-	fmt.Println("                 --name: Nombre del servidor (obligatorio)")
-	fmt.Println("                 --version: Versión de Minecraft (obligatorio)")
-	fmt.Println("                 --loader: Tipo de loader, ej: vanilla (obligatorio)")
-	fmt.Println("                 --ram: RAM en MB (obligatorio)")
-	fmt.Println("\n  list           Listar todos los servidores.")
-	fmt.Println("  start <id>     Iniciar un servidor por su ID.")
-	fmt.Println("  stop <id>      Detener un servidor por su ID.")
-	fmt.Println("  delete <id>    Eliminar un servidor por su ID.")
-	fmt.Println("  backup <id> [nombre] Crear un backup de un servidor. El nombre es opcional.")
-	fmt.Println("  backups [id]   Listar backups de un servidor o todos si no se especifica ID.")
-	fmt.Println("  delete-backup <nombre> Eliminar un backup por su nombre.")
+	fmt.Println("\nComandos principales (forma recomendada):")
+	fmt.Println("  server <subcomando>   Operaciones relacionadas con servidores")
+	fmt.Println("     create --name --version --loader --ram   Crear servidor")
+	fmt.Println("     list                                     Listar servidores")
+	fmt.Println("     start <id>                               Iniciar servidor")
+	fmt.Println("     stop <id>                                Detener servidor")
+	fmt.Println("     delete <id>                              Eliminar servidor")
+	fmt.Println("")
+	fmt.Println("  backup <subcomando>   Operaciones con backups")
+	fmt.Println("     create <id> [nombre]                     Crear backup de servidor")
+	fmt.Println("     list [id]                                Listar backups (todos o por servidor)")
+	fmt.Println("     delete <nombre>                          Eliminar backup")
+	fmt.Println("")
 	fmt.Println("  logs <id>      Ver la consola de un servidor y enviar comandos.")
 	fmt.Println("  config ports   Gestionar el rango de puertos.")
-	fmt.Println("                 --start: Puerto inicial")
-	fmt.Println("                 --end: Puerto final")
 	fmt.Println("  help           Muestra este mensaje de ayuda.")
 }
 
@@ -69,22 +67,27 @@ func main() {
 		log.Fatalf("Error al cargar la configuración: %v", err)
 	}
 
-	createCmd := flag.NewFlagSet("create", flag.ExitOnError)
-	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
-	startCmd := flag.NewFlagSet("start", flag.ExitOnError)
-	stopCmd := flag.NewFlagSet("stop", flag.ExitOnError)
-	deleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
-	backupCmd := flag.NewFlagSet("backup", flag.ExitOnError)
-	backupsCmd := flag.NewFlagSet("backups", flag.ExitOnError)
-	deleteBackupCmd := flag.NewFlagSet("delete-backup", flag.ExitOnError)
+	// Server commands
+	serverCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
+	serverListCmd := flag.NewFlagSet("list", flag.ExitOnError)
+	serverStartCmd := flag.NewFlagSet("start", flag.ExitOnError)
+	serverStopCmd := flag.NewFlagSet("stop", flag.ExitOnError)
+	serverDeleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
+
+	serverCreateName := serverCreateCmd.String("name", "", "Nombre del servidor")
+	serverCreateVer := serverCreateCmd.String("version", "", "Versión de Minecraft")
+	serverCreateLoader := serverCreateCmd.String("loader", "", "Loader (vanilla, paper, etc.)")
+	serverCreateRam := serverCreateCmd.Int("ram", 0, "RAM en MB")
+
+	// Backup commands
+	backupCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
+	backupListCmd := flag.NewFlagSet("list", flag.ExitOnError)
+	backupDeleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
+
+	// Other commands
 	logsCmd := flag.NewFlagSet("logs", flag.ExitOnError)
 	configPortsCmd := flag.NewFlagSet("ports", flag.ExitOnError)
 	helpCmd := flag.NewFlagSet("help", flag.ExitOnError)
-
-	createName := createCmd.String("name", "", "Nombre del servidor")
-	createVer := createCmd.String("version", "", "Versión de Minecraft")
-	createLoader := createCmd.String("loader", "", "Loader (vanilla, paper, etc.)")
-	createRam := createCmd.Int("ram", 0, "RAM en MB")
 
 	configPortStart := configPortsCmd.Int("start", 0, "Puerto inicial")
 	configPortEnd := configPortsCmd.Int("end", 0, "Puerto final")
@@ -93,91 +96,126 @@ func main() {
 	cmdArgs := args[1:]
 
 	switch command {
-	case "list":
-		listCmd.Parse(cmdArgs)
-		handleList()
-
-	case "create":
-		createCmd.Parse(cmdArgs)
-		handleCreate(*createName, *createVer, *createLoader, *createRam)
-
-	case "start":
-		startCmd.Parse(cmdArgs)
-		if startCmd.NArg() < 1 {
-			log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli start <UUID>")
-		}
-		handleStart(startCmd.Arg(0))
-
-	case "stop":
-		stopCmd.Parse(cmdArgs)
-		if stopCmd.NArg() < 1 {
-			log.Fatal("Error: Debes especificar el ID del servidor.")
-		}
-		handleStop(stopCmd.Arg(0))
-
-	case "delete":
-		deleteCmd.Parse(cmdArgs)
-		if deleteCmd.NArg() < 1 {
-			log.Fatal("Error: Debes especificar el ID del servidor.")
-		}
-		handleDelete(deleteCmd.Arg(0))
-
-	case "backup":
-		backupCmd.Parse(cmdArgs)
-		if backupCmd.NArg() < 1 {
-			log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli backup <UUID> [nombre-opcional]")
-		}
-		serverID := backupCmd.Arg(0)
-		backupName := ""
-		if backupCmd.NArg() > 1 {
-			backupName = backupCmd.Arg(1)
-		}
-		handleBackup(serverID, backupName)
-
-	case "backups":
-		backupsCmd.Parse(cmdArgs)
-		if backupsCmd.NArg() > 0 {
-			handleListBackups(backupsCmd.Arg(0))
-		} else {
-			handleListAllBackups()
-		}
-
-	case "delete-backup":
-		deleteBackupCmd.Parse(cmdArgs)
-		if deleteBackupCmd.NArg() < 1 {
-			log.Fatal("Error: Debes especificar el nombre del backup.")
-		}
-		handleDeleteBackup(deleteBackupCmd.Arg(0))
-
-	case "logs":
-		logsCmd.Parse(cmdArgs)
-		if logsCmd.NArg() < 1 {
-			log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli logs <UUID>")
-		}
-		handleLogs(logsCmd.Arg(0))
-
-	case "config":
+	case "server":
 		if len(cmdArgs) < 1 {
-			fmt.Println("Uso: mc-cli config [ports]")
-			fmt.Println("\nSubcomandos:")
-			fmt.Println("  ports          Ver o modificar rango de puertos")
-			fmt.Println("                 Uso: mc-cli config ports [--start N --end N]")
+			fmt.Println("Uso: mc-cli server <subcomando>")
+			fmt.Println("Subcomandos: create, list, start, stop, delete")
+			os.Exit(1)
+		}
+		sub := cmdArgs[0]
+		subArgs := cmdArgs[1:]
+
+		switch sub {
+		case "create":
+			serverCreateCmd.Parse(subArgs)
+			handleCreate(*serverCreateName, *serverCreateVer, *serverCreateLoader, *serverCreateRam)
+
+		case "list":
+			serverListCmd.Parse(subArgs)
+			handleList()
+
+		case "start":
+			serverStartCmd.Parse(subArgs)
+			if serverStartCmd.NArg() < 1 {
+				log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli server start <UUID>")
+			}
+			handleStart(serverStartCmd.Arg(0))
+
+		case "stop":
+			serverStopCmd.Parse(subArgs)
+			if serverStopCmd.NArg() < 1 {
+				log.Fatal("Error: Debes especificar el ID del servidor.")
+			}
+			handleStop(serverStopCmd.Arg(0))
+
+		case "delete":
+			serverDeleteCmd.Parse(subArgs)
+			if serverDeleteCmd.NArg() < 1 {
+				log.Fatal("Error: Debes especificar el ID del servidor.")
+			}
+			handleDelete(serverDeleteCmd.Arg(0))
+
+		case "logs":
+			logsCmd.Parse(subArgs)
+			if logsCmd.NArg() < 1 {
+				log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli server logs <UUID>")
+			}
+			handleLogs(logsCmd.Arg(0))
+
+		default:
+			fmt.Println("Subcomando desconocido para 'server':", sub)
 			os.Exit(1)
 		}
 
-		subcommand := cmdArgs[0]
-		subcommandArgs := cmdArgs[1:]
+	case "backup":
+		if len(cmdArgs) < 1 {
+			fmt.Println("Uso: mc-cli backup <subcomando>")
+			fmt.Println("Subcomandos: create, list, delete")
+			os.Exit(1)
+		}
+		sub := cmdArgs[0]
+		subArgs := cmdArgs[1:]
 
-		switch subcommand {
+		switch sub {
+		case "create":
+			backupCreateCmd.Parse(subArgs)
+			if backupCreateCmd.NArg() < 1 {
+				log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli backup create <UUID> [nombre-opcional]")
+			}
+			serverID := backupCreateCmd.Arg(0)
+			backupName := ""
+			if backupCreateCmd.NArg() > 1 {
+				backupName = backupCreateCmd.Arg(1)
+			}
+			handleBackup(serverID, backupName)
+
+		case "list":
+			backupListCmd.Parse(subArgs)
+			if backupListCmd.NArg() > 0 {
+				handleListBackups(backupListCmd.Arg(0))
+			} else {
+				handleListAllBackups()
+			}
+
+		case "delete":
+			backupDeleteCmd.Parse(subArgs)
+			if backupDeleteCmd.NArg() < 1 {
+				log.Fatal("Error: Debes especificar el nombre del backup.")
+			}
+			handleDeleteBackup(backupDeleteCmd.Arg(0))
+
+		default:
+			fmt.Println("Subcomando desconocido para 'backup':", sub)
+			fmt.Println("Uso: mc-cli backup <subcomando>")
+			fmt.Println("Subcomandos: create, list, delete")
+			os.Exit(1)
+		}
+
+	case "config":
+		if len(cmdArgs) < 1 {
+			fmt.Println("Uso: mc-cli config <subcomando>")
+			fmt.Println("Subcomandos: ports")
+			os.Exit(1)
+		}
+		sub := cmdArgs[0]
+		subArgs := cmdArgs[1:]
+
+		switch sub {
 		case "ports":
-			configPortsCmd.Parse(subcommandArgs)
+			configPortsCmd.Parse(subArgs)
 			if *configPortStart == 0 && *configPortEnd == 0 {
 				handleGetPortRange()
-			} else {
-				handleSetPortRange(*configPortStart, *configPortEnd)
+				break
 			}
+			if *configPortStart != 0 && *configPortEnd != 0 {
+				handleSetPortRange(*configPortStart, *configPortEnd)
+				break
+			}
+			log.Fatal("Error: Debes especificar ambos flags --start y --end para actualizar el rango de puertos")
 		default:
-			fmt.Println("Subcomando desconocido:", subcommand)
+			fmt.Println("Subcomando desconocido para 'config':", sub)
+			fmt.Println("Uso: mc-cli config <subcomando>")
+			fmt.Println("Subcomandos: ports")
 			os.Exit(1)
 		}
 
@@ -193,8 +231,8 @@ func main() {
 }
 
 func handleDelete(id string) {
-	url := fmt.Sprintf("%s/servers/%s", BaseURL, id)
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	reqURL := fmt.Sprintf("%s/servers/%s", BaseURL, id)
+	req, err := http.NewRequest(http.MethodDelete, reqURL, nil)
 	if err != nil {
 		log.Fatalf("Error creando petición: %v", err)
 	}
@@ -215,8 +253,8 @@ func handleDelete(id string) {
 }
 
 func handleDeleteBackup(name string) {
-	url := fmt.Sprintf("%s/backups/%s", BaseURL, name)
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	reqURL := fmt.Sprintf("%s/backups/%s", BaseURL, name)
+	req, err := http.NewRequest(http.MethodDelete, reqURL, nil)
 	if err != nil {
 		log.Fatalf("Error creando petición: %v", err)
 	}
@@ -237,8 +275,8 @@ func handleDeleteBackup(name string) {
 }
 
 func handleListAllBackups() {
-	url := fmt.Sprintf("%s/backups", BaseURL)
-	resp, err := http.Get(url)
+	reqURL := fmt.Sprintf("%s/backups", BaseURL)
+	resp, err := http.Get(reqURL)
 	if err != nil {
 		log.Fatalf("Error conectando al Daemon: %v", err)
 	}
@@ -261,8 +299,8 @@ func handleListAllBackups() {
 }
 
 func handleListBackups(id string) {
-	url := fmt.Sprintf("%s/servers/%s/backups", BaseURL, id)
-	resp, err := http.Get(url)
+	reqURL := fmt.Sprintf("%s/servers/%s/backups", BaseURL, id)
+	resp, err := http.Get(reqURL)
 	if err != nil {
 		log.Fatalf("Error conectando al Daemon: %v", err)
 	}
@@ -381,7 +419,7 @@ func handleCreate(name, version, loader string, ram int) {
 	if name == "" || version == "" || loader == "" || ram == 0 {
 		log.Println("Error: Faltan argumentos para crear el servidor.")
 		fmt.Println("\nUso correcto:")
-		fmt.Println("  mc-cli create --name \"Mi Servidor\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048")
+		fmt.Println("  mc-cli server create --name \"Mi Servidor\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048")
 		os.Exit(1)
 	}
 
@@ -406,12 +444,12 @@ func handleCreate(name, version, loader string, ram int) {
 
 	fmt.Println("Petición de creación recibida.")
 	fmt.Println("El servidor se está instalando en segundo plano.")
-	fmt.Println("Usa 'mc-cli list' para ver el estado.")
+	fmt.Println("Usa 'mc-cli server list' para ver el estado.")
 }
 
 func handleStart(id string) {
-	url := fmt.Sprintf("%s/servers/%s/start", BaseURL, id)
-	resp, err := http.Post(url, "application/json", nil)
+	reqURL := fmt.Sprintf("%s/servers/%s/start", BaseURL, id)
+	resp, err := http.Post(reqURL, "application/json", nil)
 	if err != nil {
 		log.Fatalf("Error conectando al Daemon: %v", err)
 	}
@@ -426,8 +464,8 @@ func handleStart(id string) {
 }
 
 func handleStop(id string) {
-	url := fmt.Sprintf("%s/servers/%s/stop", BaseURL, id)
-	resp, err := http.Post(url, "application/json", nil)
+	reqURL := fmt.Sprintf("%s/servers/%s/stop", BaseURL, id)
+	resp, err := http.Post(reqURL, "application/json", nil)
 	if err != nil {
 		log.Fatalf("Error conectando al Daemon: %v", err)
 	}
@@ -442,14 +480,14 @@ func handleStop(id string) {
 }
 
 func handleBackup(id, name string) {
-	url := fmt.Sprintf("%s/servers/%s/backup", BaseURL, id)
+	reqURL := fmt.Sprintf("%s/servers/%s/backup", BaseURL, id)
 
 	payload := map[string]string{
 		"name": name,
 	}
 	jsonData, _ := json.Marshal(payload)
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(reqURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatalf("Error conectando al Daemon: %v", err)
 	}
