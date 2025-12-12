@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import type {Server} from '../types';
+import {Button} from './ui/Button';
 
 interface EditServerModalProps {
     isOpen: boolean;
@@ -37,7 +38,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({isOpen, onClose, onSav
 
     return (
         <div className="modal-overlay">
-            <div className="modal-content" style={{maxWidth: 400}}>
+            <div className="modal-content">
                 <h2>Edit Server</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
@@ -63,12 +64,12 @@ const EditServerModal: React.FC<EditServerModalProps> = ({isOpen, onClose, onSav
                         />
                     </div>
                     <div className="modal-actions">
-                        <button type="button" className="btn-secondary" onClick={onClose} disabled={isSaving}>
+                        <Button type="button" variant="secondary" onClick={onClose} disabled={isSaving}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn-primary" disabled={isSaving}>
+                        </Button>
+                        <Button type="submit" disabled={isSaving}>
                             {isSaving ? 'Saving...' : 'Save'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

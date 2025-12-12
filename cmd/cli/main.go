@@ -34,7 +34,10 @@ func printHelp() {
 	fmt.Println("\n  list           Listar todos los servidores.")
 	fmt.Println("  start <id>     Iniciar un servidor por su ID.")
 	fmt.Println("  stop <id>      Detener un servidor por su ID.")
+	fmt.Println("  delete <id>    Eliminar un servidor por su ID.")
 	fmt.Println("  backup <id> [nombre] Crear un backup de un servidor. El nombre es opcional.")
+	fmt.Println("  backups [id]   Listar backups de un servidor o todos si no se especifica ID.")
+	fmt.Println("  delete-backup <nombre> Eliminar un backup por su nombre.")
 	fmt.Println("  logs <id>      Ver la consola de un servidor y enviar comandos.")
 	fmt.Println("  config ports   Gestionar el rango de puertos.")
 	fmt.Println("                 --start: Puerto inicial")
@@ -70,7 +73,10 @@ func main() {
 	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
 	startCmd := flag.NewFlagSet("start", flag.ExitOnError)
 	stopCmd := flag.NewFlagSet("stop", flag.ExitOnError)
+	deleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
 	backupCmd := flag.NewFlagSet("backup", flag.ExitOnError)
+	backupsCmd := flag.NewFlagSet("backups", flag.ExitOnError)
+	deleteBackupCmd := flag.NewFlagSet("delete-backup", flag.ExitOnError)
 	logsCmd := flag.NewFlagSet("logs", flag.ExitOnError)
 	configPortsCmd := flag.NewFlagSet("ports", flag.ExitOnError)
 	helpCmd := flag.NewFlagSet("help", flag.ExitOnError)
@@ -109,6 +115,13 @@ func main() {
 		}
 		handleStop(stopCmd.Arg(0))
 
+	case "delete":
+		deleteCmd.Parse(cmdArgs)
+		if deleteCmd.NArg() < 1 {
+			log.Fatal("Error: Debes especificar el ID del servidor.")
+		}
+		handleDelete(deleteCmd.Arg(0))
+
 	case "backup":
 		backupCmd.Parse(cmdArgs)
 		if backupCmd.NArg() < 1 {
@@ -120,6 +133,21 @@ func main() {
 			backupName = backupCmd.Arg(1)
 		}
 		handleBackup(serverID, backupName)
+
+	case "backups":
+		backupsCmd.Parse(cmdArgs)
+		if backupsCmd.NArg() > 0 {
+			handleListBackups(backupsCmd.Arg(0))
+		} else {
+			handleListAllBackups()
+		}
+
+	case "delete-backup":
+		deleteBackupCmd.Parse(cmdArgs)
+		if deleteBackupCmd.NArg() < 1 {
+			log.Fatal("Error: Debes especificar el nombre del backup.")
+		}
+		handleDeleteBackup(deleteBackupCmd.Arg(0))
 
 	case "logs":
 		logsCmd.Parse(cmdArgs)
@@ -161,6 +189,98 @@ func main() {
 		fmt.Println("Comando desconocido:", command)
 		printHelp()
 		os.Exit(1)
+	}
+}
+
+func handleDelete(id string) {
+	url := fmt.Sprintf("%s/servers/%s", BaseURL, id)
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		log.Fatalf("Error creando petición: %v", err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error conectando al Daemon: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		log.Fatalf("Error eliminando servidor: %s", string(body))
+	}
+
+	fmt.Println("Servidor eliminado exitosamente.")
+}
+
+func handleDeleteBackup(name string) {
+	url := fmt.Sprintf("%s/backups/%s", BaseURL, name)
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		log.Fatalf("Error creando petición: %v", err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error conectando al Daemon: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		log.Fatalf("Error eliminando backup: %s", string(body))
+	}
+
+	fmt.Println("Backup eliminado exitosamente.")
+}
+
+func handleListAllBackups() {
+	url := fmt.Sprintf("%s/backups", BaseURL)
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatalf("Error conectando al Daemon: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		log.Fatalf("Error del servidor: %s", string(body))
+	}
+
+	var backups []domain.BackupInfo
+	if err := json.NewDecoder(resp.Body).Decode(&backups); err != nil {
+		log.Fatalf("Error leyendo respuesta: %v", err)
+	}
+
+	fmt.Println("\n--- TODOS LOS BACKUPS ---")
+	for _, b := range backups {
+		fmt.Printf("- %s (%.2f MB)\n", b.Name, float64(b.Size)/1024/1024)
+	}
+}
+
+func handleListBackups(id string) {
+	url := fmt.Sprintf("%s/servers/%s/backups", BaseURL, id)
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatalf("Error conectando al Daemon: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		log.Fatalf("Error del servidor: %s", string(body))
+	}
+
+	var backups []domain.BackupInfo
+	if err := json.NewDecoder(resp.Body).Decode(&backups); err != nil {
+		log.Fatalf("Error leyendo respuesta: %v", err)
+	}
+
+	fmt.Printf("\n--- BACKUPS PARA SERVIDOR %s ---\n", id)
+	for _, b := range backups {
+		fmt.Printf("- %s (%.2f MB)\n", b.Name, float64(b.Size)/1024/1024)
 	}
 }
 

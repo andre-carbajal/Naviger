@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {X} from 'lucide-react';
+import {Button} from './ui/Button';
 
 interface CreateModalProps {
     isOpen: boolean;
@@ -30,9 +31,9 @@ const CreateModal: React.FC<CreateModalProps> = ({isOpen, onClose, onCreate}) =>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <div className="modal-title">Create New Server</div>
-                    <button className="btn-secondary" onClick={onClose} style={{border: 'none', padding: '5px'}}>
+                    <Button variant="secondary" onClick={onClose}>
                         <X size={20}/>
-                    </button>
+                    </Button>
                 </div>
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
@@ -83,8 +84,8 @@ const CreateModal: React.FC<CreateModalProps> = ({isOpen, onClose, onCreate}) =>
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-                        <button type="submit">Create Server</button>
+                        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+                        <Button type="submit">Create Server</Button>
                     </div>
                 </form>
             </div>

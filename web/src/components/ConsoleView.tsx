@@ -70,17 +70,8 @@ const ConsoleView: React.FC<ConsoleViewProps> = ({logs}) => {
     }, []);
 
     return (
-        <div
-            style={{
-                height: '100%',
-                width: '100%',
-                backgroundColor: '#1e1e1e',
-                padding: '10px',
-                borderRadius: '8px',
-                overflow: 'hidden'
-            }}
-        >
-            <div ref={terminalRef} style={{height: '100%', width: '100%'}}/>
+        <div className="console-view">
+            <div ref={terminalRef} className="console-view-terminal"/>
         </div>
     );
 };

@@ -1,15 +1,15 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {useNavigate, useParams} from 'react-router-dom';
-import {ArrowLeft, HardDrive, Play, Settings, Square} from 'lucide-react';
+import {Link, useParams} from 'react-router-dom';
+import {HardDrive, Play, Settings, Square} from 'lucide-react';
 import {api} from '../services/api';
 import type {Server} from '../types';
 import {useConsole} from '../hooks/useConsole';
 import ConsoleView from '../components/ConsoleView';
 import EditServerModal from '../components/EditServerModal';
+import {Button} from '../components/ui/Button';
 
 const ServerDetail: React.FC = () => {
     const {id} = useParams<{ id: string }>();
-    const navigate = useNavigate();
     const [server, setServer] = useState<Server | null>(null);
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -74,102 +74,67 @@ const ServerDetail: React.FC = () => {
     if (loading) return <div>Loading...</div>;
     if (!server) return <div>Server not found</div>;
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'RUNNING':
-                return '#4ade80';
-            case 'STARTING':
-                return '#facc15';
-            case 'STOPPED':
-                return '#f87171';
-            case 'STOPPING':
-                return '#f59e0b';
-            default:
-                return '#888';
-        }
-    };
-
     return (
-        <div className="server-detail"
-             style={{height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-                <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-                    <button className="btn-secondary" onClick={() => navigate('/')} style={{padding: '8px'}}>
-                        <ArrowLeft size={20}/>
-                    </button>
+        <div className="server-detail">
+            <div className="modal-header">
+                <div>
+                    <h1>
+                        {server.name}
+                        <span className={`status-badge status-${server.status.toLowerCase()}`}>
+                            {server.status}
+                        </span>
+                    </h1>
                     <div>
-                        <h1 style={{margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px'}}>
-                            {server.name}
-                            <span style={{
-                                fontSize: '0.9rem',
-                                padding: '2px 8px',
-                                borderRadius: '12px',
-                                backgroundColor: getStatusColor(server.status),
-                                color: '#000',
-                                fontWeight: 'bold'
-                            }}>
-                                {server.status}
-                            </span>
-                        </h1>
-                        <div style={{color: 'var(--text-muted)', fontSize: '0.9rem'}}>
-                            {server.loader} {server.version} • {server.ram}MB RAM • Port {server.port}
-                        </div>
+                        {server.loader} {server.version} • {server.ram}MB RAM • Port {server.port}
                     </div>
                 </div>
 
-                <div style={{display: 'flex', gap: '10px'}}>
+                <div>
                     {server.status === 'STOPPED' ? (
-                        <button onClick={handleStart}
-                                style={{backgroundColor: '#166534', gap: '8px', display: 'flex', alignItems: 'center'}}>
+                        <Button onClick={handleStart}>
                             <Play size={18}/> Start
-                        </button>
+                        </Button>
                     ) : (
-                        <button onClick={handleStop}
-                                style={{backgroundColor: '#991b1b', gap: '8px', display: 'flex', alignItems: 'center'}}
+                        <Button variant="danger" onClick={handleStop}
                                 disabled={server.status === 'STARTING' || server.status === 'STOPPING'}>
                             <Square size={18}/> Stop
-                        </button>
+                        </Button>
                     )}
-                    <button className="btn-secondary" onClick={() => setIsEditModalOpen(true)}>
+                    <Button variant="secondary" onClick={() => setIsEditModalOpen(true)}>
                         <Settings size={18}/>
-                    </button>
-                    <button className="btn-secondary">
-                        <HardDrive size={18}/>
-                    </button>
+                    </Button>
+                    <Button asChild variant="secondary">
+                        <Link to={`/servers/${server.id}/backups`}>
+                            <HardDrive size={18}/>
+                        </Link>
+                    </Button>
                 </div>
             </div>
 
-            <div style={{flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0}}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 5px'}}>
-                    <span style={{fontWeight: 'bold'}}>Console</span>
-                    <span style={{fontSize: '0.8rem', color: isConnected ? '#4ade80' : '#f87171'}}>
+            <div>
+                <div>
+                    <span>Console</span>
+                    <span>
                         {isConnected ? '● Connected' : '○ Disconnected'}
                     </span>
                 </div>
 
-                <div style={{
-                    flex: 1,
-                    minHeight: 0,
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    overflow: 'hidden'
-                }}>
+                <div>
                     <ConsoleView logs={logs}/>
                 </div>
 
-                <form onSubmit={handleCommandSubmit} style={{display: 'flex', gap: '10px'}}>
+                <form onSubmit={handleCommandSubmit}>
                     <input
                         type="text"
                         value={commandInput}
                         onChange={(e) => setCommandInput(e.target.value)}
                         className="form-input"
                         placeholder="Type a command..."
-                        style={{flex: 1}}
                         disabled={!isConnected}
                     />
-                    <button type="submit" disabled={!isConnected || !commandInput.trim()}>
+                    <Button type="submit" disabled={!isConnected || !commandInput.trim()}>
                         Send
-                    </button>
+                    </Button>
                 </form>
             </div>
 

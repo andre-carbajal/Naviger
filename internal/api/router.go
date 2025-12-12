@@ -41,6 +41,10 @@ func (api *Server) Start(listenAddr string) error {
 	mux.HandleFunc("POST /servers/{id}/start", api.handleStartServer)
 	mux.HandleFunc("POST /servers/{id}/stop", api.handleStopServer)
 	mux.HandleFunc("POST /servers/{id}/backup", api.handleBackupServer)
+	mux.HandleFunc("GET /servers/{id}/backups", api.handleListBackupsByServer)
+
+	mux.HandleFunc("GET /backups", api.handleListAllBackups)
+	mux.HandleFunc("DELETE /backups/{name}", api.handleDeleteBackup)
 
 	mux.HandleFunc("GET /settings/port-range", api.handleGetPortRange)
 	mux.HandleFunc("PUT /settings/port-range", api.handleSetPortRange)
@@ -51,6 +55,49 @@ func (api *Server) Start(listenAddr string) error {
 
 	fmt.Printf("API escuchando en http://0.0.0.0%s\n", listenAddr)
 	return http.ListenAndServe(listenAddr, handler)
+}
+
+func (api *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		http.Error(w, "Falta nombre del backup", http.StatusBadRequest)
+		return
+	}
+
+	if err := api.BackupManager.DeleteBackup(name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (api *Server) handleListBackupsByServer(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Falta ID", http.StatusBadRequest)
+		return
+	}
+
+	backups, err := api.BackupManager.ListBackups(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(backups)
+}
+
+func (api *Server) handleListAllBackups(w http.ResponseWriter, r *http.Request) {
+	backups, err := api.BackupManager.ListAllBackups()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(backups)
 }
 
 func (api *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {

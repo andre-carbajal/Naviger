@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type {Server} from '../types';
+import type {Backup, Server} from '../types';
 
 const apiInstance = axios.create({
     baseURL: 'http://localhost:8080',
@@ -35,4 +35,8 @@ export const api = {
     stopServer: (id: string) => apiInstance.post(`/servers/${id}/stop`),
     getPortRange: () => apiInstance.get('/settings/port-range'),
     updatePortRange: (data: { start: number, end: number }) => apiInstance.put('/settings/port-range', data),
+    listBackups: (serverId: string) => apiInstance.get<Backup[]>(`/servers/${serverId}/backups`),
+    listAllBackups: () => apiInstance.get<Backup[]>('/backups'),
+    createBackup: (serverId: string, name?: string) => apiInstance.post(`/servers/${serverId}/backup`, {name}),
+    deleteBackup: (backupName: string) => apiInstance.delete(`/backups/${backupName}`),
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import {NavLink, Outlet} from 'react-router-dom';
-import {LayoutDashboard, Server, Settings, Terminal} from 'lucide-react';
+import {DatabaseBackup, LayoutDashboard, Settings, Terminal} from 'lucide-react';
 import '../App.css';
 
 const Layout: React.FC = () => {
@@ -16,9 +16,9 @@ const Layout: React.FC = () => {
                         <LayoutDashboard size={20}/>
                         <span>Dashboard</span>
                     </NavLink>
-                    <NavLink to="/servers" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
-                        <Server size={20}/>
-                        <span>Servers</span>
+                    <NavLink to="/servers/backups/all" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
+                        <DatabaseBackup size={20}/>
+                        <span>Backups</span>
                     </NavLink>
                     <NavLink to="/settings" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
                         <Settings size={20}/>

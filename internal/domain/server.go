@@ -12,3 +12,8 @@ type Server struct {
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type BackupInfo struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+}

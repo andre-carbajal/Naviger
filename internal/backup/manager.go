@@ -26,6 +26,86 @@ func NewManager(serversPath, backupsPath string, store *storage.SQLiteStore) *Ma
 	}
 }
 
+type BackupInfo struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+}
+
+func (m *Manager) DeleteBackup(name string) error {
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("invalid backup name")
+	}
+	backupPath := filepath.Join(m.BackupsPath, name)
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		return fmt.Errorf("backup not found")
+	}
+	return os.Remove(backupPath)
+}
+
+func (m *Manager) ListAllBackups() ([]BackupInfo, error) {
+	files, err := os.ReadDir(m.BackupsPath)
+	if err != nil {
+		return nil, fmt.Errorf("no se pudo leer el directorio de backups: %w", err)
+	}
+
+	var backups []BackupInfo
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		info, err := file.Info()
+		if err != nil {
+			// Log o skip
+			continue
+		}
+		backups = append(backups, BackupInfo{
+			Name: file.Name(),
+			Size: info.Size(),
+		})
+	}
+
+	return backups, nil
+}
+
+func (m *Manager) ListBackups(serverID string) ([]BackupInfo, error) {
+	srv, err := m.Store.GetServerByID(serverID)
+	if err != nil {
+		return nil, fmt.Errorf("no se pudo obtener la información del servidor: %w", err)
+	}
+	if srv == nil {
+		return nil, fmt.Errorf("servidor con ID '%s' no encontrado en la base de datos", serverID)
+	}
+
+	safeName := sanitizeFileName(srv.Name)
+
+	files, err := os.ReadDir(m.BackupsPath)
+	if err != nil {
+		return nil, fmt.Errorf("no se pudo leer el directorio de backups: %w", err)
+	}
+
+	var backups []BackupInfo
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		if strings.HasPrefix(file.Name(), safeName) {
+			info, err := file.Info()
+			if err != nil {
+				// Log o skip
+				continue
+			}
+			backups = append(backups, BackupInfo{
+				Name: file.Name(),
+				Size: info.Size(),
+			})
+		}
+	}
+
+	return backups, nil
+}
+
 func (m *Manager) CreateBackup(serverID string, backupName string) (string, error) {
 	serverDir := filepath.Join(m.ServersPath, serverID)
 	if _, err := os.Stat(serverDir); os.IsNotExist(err) {

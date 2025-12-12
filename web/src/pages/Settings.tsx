@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {api} from '../services/api';
+import {Button} from '../components/ui/Button';
 
 const Settings: React.FC = () => {
     const [portRange, setPortRange] = useState({start: 0, end: 0});
@@ -47,15 +48,15 @@ const Settings: React.FC = () => {
 
     return (
         <div className="settings-page">
-            <h1 style={{marginBottom: '30px'}}>Settings</h1>
+            <h1>Settings</h1>
 
-            <div className="card" style={{maxWidth: '600px'}}>
-                <h2 style={{fontSize: '1.2rem', marginTop: 0}}>Network Configuration</h2>
-                <p style={{color: 'var(--text-muted)', marginBottom: '20px'}}>
+            <div className="card">
+                <h2>Network Configuration</h2>
+                <p>
                     Define the range of ports that the manager can assign to new servers.
                 </p>
 
-                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
+                <div>
                     <div className="form-group">
                         <label>Start Port</label>
                         <input
@@ -78,14 +79,13 @@ const Settings: React.FC = () => {
                     </div>
                 </div>
 
-                <div style={{marginTop: '20px', display: 'flex', justifyContent: 'flex-end'}}>
-                    <button
-                        className="btn btn-primary"
+                <div>
+                    <Button
                         onClick={handleSave}
                         disabled={!hasChanges || isSaving}
                     >
                         {isSaving ? 'Saving...' : 'Save Changes'}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

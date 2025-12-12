@@ -7,3 +7,8 @@ export interface Server {
     ram: number;
     status: "STOPPED" | "RUNNING" | "STARTING" | "STOPPING";
 }
+
+export interface Backup {
+    name: string;
+    size: number;
+}
