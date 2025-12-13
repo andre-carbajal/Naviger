@@ -15,10 +15,10 @@ import (
 type Manager struct {
 	ServersPath string
 	BackupsPath string
-	Store       *storage.SQLiteStore
+	Store       *storage.GormStore
 }
 
-func NewManager(serversPath, backupsPath string, store *storage.SQLiteStore) *Manager {
+func NewManager(serversPath, backupsPath string, store *storage.GormStore) *Manager {
 	return &Manager{
 		ServersPath: serversPath,
 		BackupsPath: backupsPath,

@@ -17,7 +17,7 @@ import (
 )
 
 type Supervisor struct {
-	Store       *storage.SQLiteStore
+	Store       *storage.GormStore
 	JVM         *jvm.Manager
 	HubManager  *ws.HubManager
 	ServersPath string
@@ -30,7 +30,7 @@ type ActiveProcess struct {
 	Stdin io.WriteCloser
 }
 
-func NewSupervisor(store *storage.SQLiteStore, jvm *jvm.Manager, hubManager *ws.HubManager, serversPath string) *Supervisor {
+func NewSupervisor(store *storage.GormStore, jvm *jvm.Manager, hubManager *ws.HubManager, serversPath string) *Supervisor {
 	return &Supervisor{
 		Store:       store,
 		JVM:         jvm,

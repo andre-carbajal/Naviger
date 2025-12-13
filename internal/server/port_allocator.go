@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-func AllocatePort(store *storage.SQLiteStore) (int, error) {
+func AllocatePort(store *storage.GormStore) (int, error) {
 	startPort, endPort, err := store.GetPortRange()
 	if err != nil {
 		return 0, fmt.Errorf("error obteniendo rango de puertos: %w", err)

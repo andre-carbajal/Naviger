@@ -15,12 +15,12 @@ import (
 type Server struct {
 	Manager       *server.Manager
 	Supervisor    *runner.Supervisor
-	Store         *storage.SQLiteStore
+	Store         *storage.GormStore
 	HubManager    *ws.HubManager
 	BackupManager *backup.Manager
 }
 
-func NewAPIServer(mgr *server.Manager, sup *runner.Supervisor, store *storage.SQLiteStore, hubManager *ws.HubManager, backupManager *backup.Manager) *Server {
+func NewAPIServer(mgr *server.Manager, sup *runner.Supervisor, store *storage.GormStore, hubManager *ws.HubManager, backupManager *backup.Manager) *Server {
 	return &Server{
 		Manager:       mgr,
 		Supervisor:    sup,

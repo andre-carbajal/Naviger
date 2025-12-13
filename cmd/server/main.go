@@ -48,7 +48,7 @@ func main() {
 		}
 	}
 
-	store, err := storage.NewSQLiteStore(cfg.DatabasePath)
+	store, err := storage.NewGormStore(cfg.DatabasePath)
 	if err != nil {
 		log.Fatalf("Fatal: No se pudo conectar a la DB: %v", err)
 	}
