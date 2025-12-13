@@ -93,6 +93,7 @@ func (l *PaperLoader) getVersions() ([]string, error) {
 		}
 	}
 
+	SortVersions(filteredVersions)
 	return filteredVersions, nil
 }
 
