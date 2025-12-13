@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"mc-manager/internal/backup"
+	"mc-manager/internal/loader"
 	"mc-manager/internal/runner"
 	"mc-manager/internal/server"
 	"mc-manager/internal/storage"
@@ -32,6 +33,8 @@ func NewAPIServer(mgr *server.Manager, sup *runner.Supervisor, store *storage.SQ
 func (api *Server) Start(listenAddr string) error {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("GET /loaders", api.handleGetLoaders)
+	mux.HandleFunc("GET /loaders/{name}/versions", api.handleGetLoaderVersions)
 	mux.HandleFunc("GET /servers", api.handleListServers)
 	mux.HandleFunc("POST /servers", api.handleCreateServer)
 	mux.HandleFunc("GET /servers/{id}", api.handleGetServer)
@@ -55,6 +58,29 @@ func (api *Server) Start(listenAddr string) error {
 
 	fmt.Printf("API escuchando en http://0.0.0.0%s\n", listenAddr)
 	return http.ListenAndServe(listenAddr, handler)
+}
+
+func (api *Server) handleGetLoaderVersions(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		http.Error(w, "Falta el nombre del loader", http.StatusBadRequest)
+		return
+	}
+
+	versions, err := loader.GetLoaderVersions(name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(versions)
+}
+
+func (api *Server) handleGetLoaders(w http.ResponseWriter, r *http.Request) {
+	loaders := loader.GetAvailableLoaders()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(loaders)
 }
 
 func (api *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {

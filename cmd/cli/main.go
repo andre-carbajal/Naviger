@@ -38,6 +38,7 @@ func printHelp() {
 	fmt.Println("     list [id]                                Listar backups (todos o por servidor)")
 	fmt.Println("     delete <nombre>                          Eliminar backup")
 	fmt.Println("")
+	fmt.Println("  loaders        Muestra los loaders de servidores disponibles.")
 	fmt.Println("  logs <id>      Ver la consola de un servidor y enviar comandos.")
 	fmt.Println("  config ports   Gestionar el rango de puertos.")
 	fmt.Println("  help           Muestra este mensaje de ayuda.")
@@ -85,6 +86,7 @@ func main() {
 	backupDeleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
 
 	// Other commands
+	loadersCmd := flag.NewFlagSet("loaders", flag.ExitOnError)
 	logsCmd := flag.NewFlagSet("logs", flag.ExitOnError)
 	configPortsCmd := flag.NewFlagSet("ports", flag.ExitOnError)
 	helpCmd := flag.NewFlagSet("help", flag.ExitOnError)
@@ -219,6 +221,10 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "loaders":
+		loadersCmd.Parse(cmdArgs)
+		handleListLoaders()
+
 	case "help":
 		helpCmd.Parse(cmdArgs)
 		printHelp()
@@ -227,6 +233,28 @@ func main() {
 		fmt.Println("Comando desconocido:", command)
 		printHelp()
 		os.Exit(1)
+	}
+}
+
+func handleListLoaders() {
+	resp, err := http.Get(BaseURL + "/loaders")
+	if err != nil {
+		log.Fatalf("Error conectando al Daemon: %v\n(¿Está corriendo el servidor en otra terminal?)", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		log.Fatalf("Error del servidor: %s", resp.Status)
+	}
+
+	var loaders []string
+	if err := json.NewDecoder(resp.Body).Decode(&loaders); err != nil {
+		log.Fatalf("Error leyendo respuesta: %v", err)
+	}
+
+	fmt.Println("\n--- LOADERS DISPONIBLES ---")
+	for _, l := range loaders {
+		fmt.Printf("- %s\n", l)
 	}
 }
 
@@ -348,7 +376,7 @@ func handleLogs(id string) {
 			_, message, err := c.ReadMessage()
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Printf("Error inesperado leyendo mensaje: %v", err)
+					fmt.Printf("Error inesperado leyendo mensaje: %v", err)
 				}
 				fmt.Println("\nDesconectado de la consola.")
 				return

@@ -26,6 +26,10 @@ func NewPaperLoader() *PaperLoader {
 	return &PaperLoader{}
 }
 
+func (l *PaperLoader) GetSupportedVersions() ([]string, error) {
+	return l.getVersions()
+}
+
 func (l *PaperLoader) Load(versionID string, destDir string) error {
 	fmt.Printf("[Paper Loader] Buscando versión %s...\n", versionID)
 
@@ -62,7 +66,7 @@ func (l *PaperLoader) Load(versionID string, destDir string) error {
 		return err
 	}
 
-	fmt.Println("Instalación completada. El servidor etá iniciando.")
+	fmt.Println("Instalación completada. El servidor está iniciando.")
 	return nil
 }
 

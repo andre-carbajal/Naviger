@@ -1,6 +1,7 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {X} from 'lucide-react';
 import {Button} from './ui/Button';
+import {api} from "../services/api.ts";
 
 interface CreateModalProps {
     isOpen: boolean;
@@ -13,6 +14,35 @@ const CreateModal: React.FC<CreateModalProps> = ({isOpen, onClose, onCreate}) =>
     const [loader, setLoader] = useState('vanilla');
     const [version, setVersion] = useState('1.20.1');
     const [ram, setRam] = useState(2048);
+    const [loaders, setLoaders] = useState<string[]>([]);
+    const [versions, setVersions] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (isOpen) {
+            api.getLoaders().then(response => {
+                setLoaders(response.data);
+                if (response.data.length > 0) {
+                    setLoader(response.data[0]);
+                }
+            }).catch(error => {
+                console.error("Failed to fetch loaders", error);
+            });
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (loader) {
+            api.getLoaderVersions(loader).then(response => {
+                setVersions(response.data);
+                if (response.data.length > 0) {
+                    setVersion(response.data[0]);
+                }
+            }).catch(error => {
+                console.error(`Failed to fetch versions for ${loader}`, error);
+            });
+        }
+    }, [loader]);
+
 
     if (!isOpen) return null;
 
@@ -21,7 +51,7 @@ const CreateModal: React.FC<CreateModalProps> = ({isOpen, onClose, onCreate}) =>
         onCreate({name, loader, version, ram});
         onClose();
         setName('');
-        setLoader('vanilla');
+        setLoader(loaders.length > 0 ? loaders[0] : 'vanilla');
         setVersion('1.20.1');
         setRam(2048);
     };
@@ -52,22 +82,19 @@ const CreateModal: React.FC<CreateModalProps> = ({isOpen, onClose, onCreate}) =>
                         <div className="form-group">
                             <label>Loader</label>
                             <select className="form-select" value={loader} onChange={(e) => setLoader(e.target.value)}>
-                                <option value="vanilla">Vanilla</option>
-                                <option value="paper">Paper</option>
-                                <option value="fabric">Fabric</option>
-                                <option value="forge">Forge</option>
+                                {loaders.map(l => (
+                                    <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                                ))}
                             </select>
                         </div>
                         <div className="form-group">
                             <label>Version</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={version}
-                                onChange={(e) => setVersion(e.target.value)}
-                                placeholder="1.21"
-                                required
-                            />
+                            <select className="form-select" value={version}
+                                    onChange={(e) => setVersion(e.target.value)}>
+                                {versions.map(v => (
+                                    <option key={v} value={v}>{v}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 

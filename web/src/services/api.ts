@@ -23,6 +23,8 @@ apiInstance.interceptors.response.use(
 );
 
 export const api = {
+    getLoaders: () => apiInstance.get<string[]>('/loaders'),
+    getLoaderVersions: (loader: string) => apiInstance.get<string[]>(`/loaders/${loader}/versions`),
     getServers: () => apiInstance.get<Server[]>('/servers'),
     getServer: (id: string) => apiInstance.get<Server>(`/servers/${id}`),
     createServer: (data: Omit<Server, 'id' | 'status' | 'port' | 'pid'>) => apiInstance.post<Server>('/servers', data),

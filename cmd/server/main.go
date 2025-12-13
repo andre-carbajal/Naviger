@@ -20,7 +20,7 @@ func main() {
 	port := flag.Int("port", 0, "Puerto para ejecutar el servidor")
 	flag.Parse()
 
-	log.Println("Iniciando Minecraft Manager Daemon...")
+	fmt.Println("Iniciando Minecraft Manager Daemon...")
 
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
@@ -37,10 +37,10 @@ func main() {
 		cfg.Port = *port
 	}
 
-	log.Printf("Usando base de datos: %s", cfg.DatabasePath)
-	log.Printf("Usando directorio de servidores: %s", cfg.ServersPath)
-	log.Printf("Usando directorio de runtimes de Java: %s", cfg.RuntimesPath)
-	log.Printf("Usando directorio de backups: %s", cfg.BackupsPath)
+	fmt.Printf("Usando base de datos: %s\n", cfg.DatabasePath)
+	fmt.Printf("Usando directorio de servidores: %s\n", cfg.ServersPath)
+	fmt.Printf("Usando directorio de runtimes de Java: %s\n", cfg.RuntimesPath)
+	fmt.Printf("Usando directorio de backups: %s\n", cfg.BackupsPath)
 
 	for _, path := range []string{cfg.ServersPath, cfg.BackupsPath, cfg.RuntimesPath} {
 		if err := os.MkdirAll(path, 0755); err != nil {
@@ -66,7 +66,7 @@ func main() {
 	apiServer := api.NewAPIServer(srvMgr, supervisor, store, hubManager, backupManager)
 
 	listenAddr := fmt.Sprintf(":%d", cfg.Port)
-	log.Printf("API Server escuchando en %s", listenAddr)
+	fmt.Printf("API Server escuchando en %s\n", listenAddr)
 
 	if err := apiServer.Start(listenAddr); err != nil {
 		log.Fatalf("Error API: %v", err)

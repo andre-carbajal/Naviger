@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {Link, useParams} from 'react-router-dom';
-import {HardDrive, Play, Settings, Square} from 'lucide-react';
+import {useParams} from 'react-router-dom';
+import {Play, Settings, Square} from 'lucide-react';
 import {api} from '../services/api';
 import type {Server} from '../types';
 import {useConsole} from '../hooks/useConsole';
@@ -103,10 +103,6 @@ const ServerDetail: React.FC = () => {
                     <Button variant="secondary" onClick={() => setIsEditModalOpen(true)}>
                         <Settings size={18}/>
                     </Button>
-                    <Link to={`/servers/${server.id}/backups`} className="btn btn-secondary"
-                          style={{textDecoration: 'none'}}>
-                        <HardDrive size={18}/>
-                    </Link>
                 </div>
             </div>
 

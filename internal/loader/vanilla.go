@@ -34,6 +34,20 @@ func NewVanillaLoader() *VanillaLoader {
 	return &VanillaLoader{}
 }
 
+func (l *VanillaLoader) GetSupportedVersions() ([]string, error) {
+	manifest, err := l.fetchManifest()
+	if err != nil {
+		return nil, fmt.Errorf("no se pudo obtener el manifiesto de versiones: %w", err)
+	}
+
+	var versions []string
+	for _, v := range manifest.Versions {
+		versions = append(versions, v.ID)
+	}
+
+	return versions, nil
+}
+
 func (l *VanillaLoader) Load(versionID string, destDir string) error {
 	fmt.Printf("[Vanilla Loader] Buscando versión %s...\n", versionID)
 
@@ -66,7 +80,7 @@ func (l *VanillaLoader) Load(versionID string, destDir string) error {
 		return err
 	}
 
-	fmt.Println("Instalación completada. El servidor etá iniciando.")
+	fmt.Println("Instalación completada. El servidor está iniciando.")
 	return nil
 }
 
