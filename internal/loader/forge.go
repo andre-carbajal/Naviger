@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -98,15 +99,30 @@ func (l *ForgeLoader) Load(versionID string, destDir string) error {
 	forgeVersion := fmt.Sprintf("%s-%s", versionID, latestLoaderVersion)
 	downloadURL := fmt.Sprintf("https://maven.minecraftforge.net/net/minecraftforge/forge/%s/forge-%s-installer.jar", forgeVersion, forgeVersion)
 
-	finalPath := filepath.Join(destDir, "installer.jar")
+	installerPath := filepath.Join(destDir, "installer.jar")
 	fmt.Printf("Descargando Forge installer.jar desde: %s\n", downloadURL)
 
-	err = l.downloadFile(downloadURL, finalPath)
+	err = l.downloadFile(downloadURL, installerPath)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Instalación completada. Ahora necesitas ejecutar el instalador.")
+	fmt.Println("Ejecutando instalador de Forge...")
+	cmd := exec.Command("java", "-jar", "installer.jar", "--installServer")
+	cmd.Dir = destDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error ejecutando el instalador de Forge: %w", err)
+	}
+
+	fmt.Println("Limpiando archivos de instalación...")
+	if err := os.Remove(installerPath); err != nil {
+		return fmt.Errorf("error eliminando el instalador: %w", err)
+	}
+
+	fmt.Println("Instalación de Forge completada.")
 	return nil
 }
 
