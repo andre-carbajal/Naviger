@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/fs"
 	"mc-manager/internal/jvm"
 	"mc-manager/internal/storage"
 	"mc-manager/internal/ws"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -54,14 +56,7 @@ func (s *Supervisor) StartServer(serverID string) error {
 		return fmt.Errorf("servidor no encontrado")
 	}
 
-	requiredJava := GetJavaVersionForMC(srv.Version)
-	javaPath, err := s.JVM.EnsureJava(requiredJava)
-	if err != nil {
-		return fmt.Errorf("error preparando Java: %w", err)
-	}
-
 	serverDir := filepath.Join(s.ServersPath, srv.ID)
-
 	absServerDir, err := filepath.Abs(serverDir)
 	if err != nil {
 		return fmt.Errorf("error obteniendo ruta absoluta del server: %w", err)
@@ -72,23 +67,77 @@ func (s *Supervisor) StartServer(serverID string) error {
 		fmt.Printf("⚠Advertencia: No se pudo actualizar server.properties: %v\n", err)
 	}
 
-	jarPath := "server.jar"
-	jarFull := filepath.Join(absServerDir, jarPath)
-	if _, err := os.Stat(jarFull); err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("server jar no encontrado en %s", jarFull)
+	requiredJava := GetJavaVersionForMC(srv.Version)
+	javaPath, err := s.JVM.EnsureJava(requiredJava)
+	if err != nil {
+		return fmt.Errorf("error preparando Java: %w", err)
+	}
+
+	var cmd *exec.Cmd
+	var args []string
+
+	if srv.Loader == "forge" || srv.Loader == "neoforge" {
+		librariesDir := filepath.Join(absServerDir, "libraries")
+		var argsFile string
+		targetFile := "unix_args.txt"
+		if runtime.GOOS == "windows" {
+			targetFile = "win_args.txt"
 		}
-		return fmt.Errorf("error accediendo a %s: %w", jarFull, err)
+
+		if _, err := os.Stat(librariesDir); os.IsNotExist(err) {
+			return fmt.Errorf("directorio libraries no encontrado en %s (necesario para Forge/NeoForge)", librariesDir)
+		}
+
+		err := filepath.WalkDir(librariesDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && d.Name() == targetFile {
+				argsFile = path
+				return io.EOF
+			}
+			return nil
+		})
+
+		if argsFile == "" {
+			if err != io.EOF {
+				return fmt.Errorf("no se encontró el archivo de argumentos %s en libraries", targetFile)
+			}
+		}
+
+		args = []string{
+			fmt.Sprintf("-Xmx%dM", srv.RAM),
+			"-Xms512M",
+		}
+
+		userJvmArgs := filepath.Join(absServerDir, "user_jvm_args.txt")
+		if _, err := os.Stat(userJvmArgs); err == nil {
+			args = append(args, fmt.Sprintf("@%s", userJvmArgs))
+		}
+
+		args = append(args, fmt.Sprintf("@%s", argsFile))
+
+		args = append(args, "nogui")
+
+	} else {
+		jarPath := "server.jar"
+		jarFull := filepath.Join(absServerDir, jarPath)
+		if _, err := os.Stat(jarFull); err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("server jar no encontrado en %s", jarFull)
+			}
+			return fmt.Errorf("error accediendo a %s: %w", jarFull, err)
+		}
+
+		args = []string{
+			fmt.Sprintf("-Xmx%dM", srv.RAM),
+			"-Xms512M",
+			"-jar", jarPath,
+			"nogui",
+		}
 	}
 
-	args := []string{
-		fmt.Sprintf("-Xmx%dM", srv.RAM),
-		"-Xms512M",
-		"-jar", jarPath,
-		"nogui",
-	}
-
-	cmd := exec.Command(javaPath, args...)
+	cmd = exec.Command(javaPath, args...)
 	cmd.Dir = absServerDir
 
 	stdin, err := cmd.StdinPipe()
@@ -128,8 +177,6 @@ func (s *Supervisor) StartServer(serverID string) error {
 		for command := range hub.Commands {
 			_, err := io.WriteString(stdin, string(command))
 			if err != nil {
-				// Si hay un error aquí (ej. pipe roto), la goroutine de 'Wait' se encargará de limpiar.
-				// Podemos simplemente dejar de escuchar.
 				return
 			}
 		}
