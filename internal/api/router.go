@@ -10,6 +10,8 @@ import (
 	"mc-manager/internal/storage"
 	"mc-manager/internal/ws"
 	"net/http"
+	"os"
+	"path/filepath"
 )
 
 type Server struct {
@@ -32,6 +34,16 @@ func NewAPIServer(mgr *server.Manager, sup *runner.Supervisor, store *storage.Go
 
 func (api *Server) Start(listenAddr string) error {
 	mux := http.NewServeMux()
+
+	ex, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("error obteniendo ruta del ejecutable: %v", err)
+	}
+	exPath := filepath.Dir(ex)
+	webDistPath := filepath.Join(exPath, "web_dist")
+
+	fs := http.FileServer(http.Dir(webDistPath))
+	mux.Handle("/", fs)
 
 	mux.HandleFunc("GET /loaders", api.handleGetLoaders)
 	mux.HandleFunc("GET /loaders/{name}/versions", api.handleGetLoaderVersions)
