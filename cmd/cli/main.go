@@ -48,7 +48,6 @@ func printHelp() {
 	fmt.Println("  - Puedes usar 'config ports' como alias antiguo para 'ports'.")
 }
 
-// parseFlags ejecuta Parse en el FlagSet y termina la ejecución en caso de error.
 func parseFlags(fs *flag.FlagSet, args []string, ctx string) {
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("Error parseando flags para %s: %v", ctx, err)
