@@ -22,26 +22,37 @@ import (
 var BaseURL string
 
 func printHelp() {
-	fmt.Println("Uso: mc-cli [opciones] <comando> [argumentos]")
+	fmt.Println("Uso: mc-cli [opciones] <recurso> <acción> [argumentos]")
 	fmt.Println("\nOpciones globales:")
 	fmt.Println("  --port <puerto>  Puerto del servidor (por defecto: 8080)")
-	fmt.Println("\nComandos principales (forma recomendada):")
-	fmt.Println("  server <subcomando>   Operaciones relacionadas con servidores")
-	fmt.Println("     create --name --version --loader --ram   Crear servidor")
-	fmt.Println("     list                                     Listar servidores")
-	fmt.Println("     start <id>                               Iniciar servidor")
-	fmt.Println("     stop <id>                                Detener servidor")
-	fmt.Println("     delete <id>                              Eliminar servidor")
+	fmt.Println("\nFormato recomendado: mc-cli <recurso> <acción>")
+	fmt.Println("Recursos y acciones:")
+	fmt.Println("  server create --name --version --loader --ram   Crear servidor")
+	fmt.Println("  server list                                     Listar servidores")
+	fmt.Println("  server start <id>                               Iniciar servidor")
+	fmt.Println("  server stop <id>                                Detener servidor")
+	fmt.Println("  server delete <id>                              Eliminar servidor")
 	fmt.Println("")
-	fmt.Println("  backup <subcomando>   Operaciones con backups")
-	fmt.Println("     create <id> [nombre]                     Crear backup de servidor")
-	fmt.Println("     list [id]                                Listar backups (todos o por servidor)")
-	fmt.Println("     delete <nombre>                          Eliminar backup")
+	fmt.Println("  backup create <id> [nombre]                     Crear backup de servidor")
+	fmt.Println("  backup list [id]                                Listar backups (todos o por servidor)")
+	fmt.Println("  backup delete <nombre>                          Eliminar backup")
+	fmt.Println("")
+	fmt.Println("  ports get                                       Mostrar rango de puertos")
+	fmt.Println("  ports set --start <n> --end <m>                 Establecer rango de puertos")
 	fmt.Println("")
 	fmt.Println("  loaders        Muestra los loaders de servidores disponibles.")
 	fmt.Println("  logs <id>      Ver la consola de un servidor y enviar comandos.")
-	fmt.Println("  config ports   Gestionar el rango de puertos.")
 	fmt.Println("  help           Muestra este mensaje de ayuda.")
+	fmt.Println("")
+	fmt.Println("Notas:")
+	fmt.Println("  - Puedes usar 'config ports' como alias antiguo para 'ports'.")
+}
+
+// parseFlags ejecuta Parse en el FlagSet y termina la ejecución en caso de error.
+func parseFlags(fs *flag.FlagSet, args []string, ctx string) {
+	if err := fs.Parse(args); err != nil {
+		log.Fatalf("Error parseando flags para %s: %v", ctx, err)
+	}
 }
 
 func main() {
@@ -68,7 +79,6 @@ func main() {
 		log.Fatalf("Error al cargar la configuración: %v", err)
 	}
 
-	// Server commands
 	serverCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
 	serverListCmd := flag.NewFlagSet("list", flag.ExitOnError)
 	serverStartCmd := flag.NewFlagSet("start", flag.ExitOnError)
@@ -80,19 +90,18 @@ func main() {
 	serverCreateLoader := serverCreateCmd.String("loader", "", "Loader (vanilla, paper, etc.)")
 	serverCreateRam := serverCreateCmd.Int("ram", 0, "RAM en MB")
 
-	// Backup commands
 	backupCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
 	backupListCmd := flag.NewFlagSet("list", flag.ExitOnError)
 	backupDeleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
 
-	// Other commands
+	portsGetCmd := flag.NewFlagSet("get", flag.ExitOnError)
+	portsSetCmd := flag.NewFlagSet("set", flag.ExitOnError)
+	portsSetStart := portsSetCmd.Int("start", 0, "Puerto inicial")
+	portsSetEnd := portsSetCmd.Int("end", 0, "Puerto final")
+
 	loadersCmd := flag.NewFlagSet("loaders", flag.ExitOnError)
 	logsCmd := flag.NewFlagSet("logs", flag.ExitOnError)
-	configPortsCmd := flag.NewFlagSet("ports", flag.ExitOnError)
 	helpCmd := flag.NewFlagSet("help", flag.ExitOnError)
-
-	configPortStart := configPortsCmd.Int("start", 0, "Puerto inicial")
-	configPortEnd := configPortsCmd.Int("end", 0, "Puerto final")
 
 	command := args[0]
 	cmdArgs := args[1:]
@@ -101,7 +110,7 @@ func main() {
 	case "server":
 		if len(cmdArgs) < 1 {
 			fmt.Println("Uso: mc-cli server <subcomando>")
-			fmt.Println("Subcomandos: create, list, start, stop, delete")
+			fmt.Println("Subcomandos: create, list, start, stop, delete, logs")
 			os.Exit(1)
 		}
 		sub := cmdArgs[0]
@@ -109,36 +118,36 @@ func main() {
 
 		switch sub {
 		case "create":
-			serverCreateCmd.Parse(subArgs)
+			parseFlags(serverCreateCmd, subArgs, "server create")
 			handleCreate(*serverCreateName, *serverCreateVer, *serverCreateLoader, *serverCreateRam)
 
 		case "list":
-			serverListCmd.Parse(subArgs)
+			parseFlags(serverListCmd, subArgs, "server list")
 			handleList()
 
 		case "start":
-			serverStartCmd.Parse(subArgs)
+			parseFlags(serverStartCmd, subArgs, "server start")
 			if serverStartCmd.NArg() < 1 {
 				log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli server start <UUID>")
 			}
 			handleStart(serverStartCmd.Arg(0))
 
 		case "stop":
-			serverStopCmd.Parse(subArgs)
+			parseFlags(serverStopCmd, subArgs, "server stop")
 			if serverStopCmd.NArg() < 1 {
 				log.Fatal("Error: Debes especificar el ID del servidor.")
 			}
 			handleStop(serverStopCmd.Arg(0))
 
 		case "delete":
-			serverDeleteCmd.Parse(subArgs)
+			parseFlags(serverDeleteCmd, subArgs, "server delete")
 			if serverDeleteCmd.NArg() < 1 {
 				log.Fatal("Error: Debes especificar el ID del servidor.")
 			}
 			handleDelete(serverDeleteCmd.Arg(0))
 
 		case "logs":
-			logsCmd.Parse(subArgs)
+			parseFlags(logsCmd, subArgs, "server logs")
 			if logsCmd.NArg() < 1 {
 				log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli server logs <UUID>")
 			}
@@ -160,7 +169,7 @@ func main() {
 
 		switch sub {
 		case "create":
-			backupCreateCmd.Parse(subArgs)
+			parseFlags(backupCreateCmd, subArgs, "backup create")
 			if backupCreateCmd.NArg() < 1 {
 				log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli backup create <UUID> [nombre-opcional]")
 			}
@@ -172,7 +181,7 @@ func main() {
 			handleBackup(serverID, backupName)
 
 		case "list":
-			backupListCmd.Parse(subArgs)
+			parseFlags(backupListCmd, subArgs, "backup list")
 			if backupListCmd.NArg() > 0 {
 				handleListBackups(backupListCmd.Arg(0))
 			} else {
@@ -180,7 +189,7 @@ func main() {
 			}
 
 		case "delete":
-			backupDeleteCmd.Parse(subArgs)
+			parseFlags(backupDeleteCmd, subArgs, "backup delete")
 			if backupDeleteCmd.NArg() < 1 {
 				log.Fatal("Error: Debes especificar el nombre del backup.")
 			}
@@ -193,40 +202,40 @@ func main() {
 			os.Exit(1)
 		}
 
-	case "config":
+	case "ports":
 		if len(cmdArgs) < 1 {
-			fmt.Println("Uso: mc-cli config <subcomando>")
-			fmt.Println("Subcomandos: ports")
+			fmt.Println("Uso: mc-cli ports <subcomando>")
+			fmt.Println("Subcomandos: get, set")
 			os.Exit(1)
 		}
 		sub := cmdArgs[0]
 		subArgs := cmdArgs[1:]
 
 		switch sub {
-		case "ports":
-			configPortsCmd.Parse(subArgs)
-			if *configPortStart == 0 && *configPortEnd == 0 {
-				handleGetPortRange()
-				break
+		case "get":
+			parseFlags(portsGetCmd, subArgs, "ports get")
+			handleGetPortRange()
+
+		case "set":
+			parseFlags(portsSetCmd, subArgs, "ports set")
+			if *portsSetStart == 0 || *portsSetEnd == 0 {
+				log.Fatal("Error: Debes especificar ambos flags --start y --end para actualizar el rango de puertos")
 			}
-			if *configPortStart != 0 && *configPortEnd != 0 {
-				handleSetPortRange(*configPortStart, *configPortEnd)
-				break
-			}
-			log.Fatal("Error: Debes especificar ambos flags --start y --end para actualizar el rango de puertos")
+			handleSetPortRange(*portsSetStart, *portsSetEnd)
+
 		default:
-			fmt.Println("Subcomando desconocido para 'config':", sub)
-			fmt.Println("Uso: mc-cli config <subcomando>")
-			fmt.Println("Subcomandos: ports")
+			fmt.Println("Subcomando desconocido para 'ports':", sub)
+			fmt.Println("Uso: mc-cli ports <subcomando>")
+			fmt.Println("Subcomandos: get, set")
 			os.Exit(1)
 		}
 
 	case "loaders":
-		loadersCmd.Parse(cmdArgs)
+		parseFlags(loadersCmd, cmdArgs, "loaders")
 		handleListLoaders()
 
 	case "help":
-		helpCmd.Parse(cmdArgs)
+		parseFlags(helpCmd, cmdArgs, "help")
 		printHelp()
 
 	default:
