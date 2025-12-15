@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"mc-manager/internal/app"
 	"mc-manager/internal/backup"
 	"mc-manager/internal/loader"
 	"mc-manager/internal/runner"
@@ -22,13 +23,13 @@ type Server struct {
 	BackupManager *backup.Manager
 }
 
-func NewAPIServer(mgr *server.Manager, sup *runner.Supervisor, store *storage.GormStore, hubManager *ws.HubManager, backupManager *backup.Manager) *Server {
+func NewAPIServer(container *app.Container) *Server {
 	return &Server{
-		Manager:       mgr,
-		Supervisor:    sup,
-		Store:         store,
-		HubManager:    hubManager,
-		BackupManager: backupManager,
+		Manager:       container.ServerManager,
+		Supervisor:    container.Supervisor,
+		Store:         container.Store,
+		HubManager:    container.HubManager,
+		BackupManager: container.BackupManager,
 	}
 }
 

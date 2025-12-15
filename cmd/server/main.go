@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"mc-manager/internal/api"
+	"mc-manager/internal/app"
 	"mc-manager/internal/backup"
 	"mc-manager/internal/config"
 	"mc-manager/internal/jvm"
@@ -46,16 +47,21 @@ func main() {
 	}
 
 	jvmMgr := jvm.NewManager(cfg.RuntimesPath)
-
 	srvMgr := server.NewManager(cfg.ServersPath, store)
-
 	hubManager := ws.NewHubManager()
-
 	supervisor := runner.NewSupervisor(store, jvmMgr, hubManager, cfg.ServersPath)
-
 	backupManager := backup.NewManager(cfg.ServersPath, cfg.BackupsPath, store)
 
-	apiServer := api.NewAPIServer(srvMgr, supervisor, store, hubManager, backupManager)
+	container := &app.Container{
+		Store:         store,
+		JvmManager:    jvmMgr,
+		ServerManager: srvMgr,
+		HubManager:    hubManager,
+		Supervisor:    supervisor,
+		BackupManager: backupManager,
+	}
+
+	apiServer := api.NewAPIServer(container)
 
 	listenAddr := fmt.Sprintf(":%d", config.GetPort())
 	fmt.Printf("API Server escuchando en %s\n", listenAddr)
