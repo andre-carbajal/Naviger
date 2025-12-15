@@ -2,7 +2,7 @@ import axios from 'axios';
 import type {Backup, Server} from '../types';
 
 const apiInstance = axios.create({
-    baseURL: 'http://localhost:8080',
+    baseURL: 'http://localhost:23008',
     timeout: 5000,
     headers: {
         'Content-Type': 'application/json',

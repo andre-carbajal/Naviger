@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"mc-manager/internal/api"
@@ -17,9 +16,6 @@ import (
 )
 
 func main() {
-	port := flag.Int("port", 0, "Puerto para ejecutar el servidor")
-	flag.Parse()
-
 	fmt.Println("Iniciando Minecraft Manager Daemon...")
 
 	userConfigDir, err := os.UserConfigDir()
@@ -31,10 +27,6 @@ func main() {
 	cfg, err := config.LoadConfig(configDir)
 	if err != nil {
 		log.Fatalf("Error al cargar la configuración: %v", err)
-	}
-
-	if *port != 0 {
-		cfg.Port = *port
 	}
 
 	fmt.Printf("Usando base de datos: %s\n", cfg.DatabasePath)
@@ -65,7 +57,7 @@ func main() {
 
 	apiServer := api.NewAPIServer(srvMgr, supervisor, store, hubManager, backupManager)
 
-	listenAddr := fmt.Sprintf(":%d", cfg.Port)
+	listenAddr := fmt.Sprintf(":%d", config.GetPort())
 	fmt.Printf("API Server escuchando en %s\n", listenAddr)
 
 	if err := apiServer.Start(listenAddr); err != nil {

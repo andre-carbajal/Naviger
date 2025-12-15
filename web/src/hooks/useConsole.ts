@@ -9,7 +9,7 @@ export const useConsole = (serverId: string) => {
         if (!serverId) return;
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = 'localhost:8080';
+        const host = 'localhost:23008';
         const url = `${protocol}//${host}/ws/servers/${serverId}/console`;
 
         console.log(`Connecting to WS: ${url}`);

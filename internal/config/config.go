@@ -12,7 +12,7 @@ const (
 	defaultBackupsDir   = "backups"
 	defaultRuntimesDir  = "runtimes"
 	defaultDatabaseFile = "manager.db"
-	defaultPort         = 8080
+	defaultPort         = 23008
 )
 
 type Config struct {
@@ -20,7 +20,6 @@ type Config struct {
 	BackupsPath  string `json:"backups_path"`
 	RuntimesPath string `json:"runtimes_path"`
 	DatabasePath string `json:"database_path"`
-	Port         int    `json:"port"`
 }
 
 func LoadConfig(configDir string) (*Config, error) {
@@ -44,10 +43,6 @@ func LoadConfig(configDir string) (*Config, error) {
 		return nil, err
 	}
 
-	if cfg.Port == 0 {
-		cfg.Port = defaultPort
-	}
-
 	return &cfg, nil
 }
 
@@ -57,7 +52,6 @@ func createDefaultConfig(configPath, configDir string) (*Config, error) {
 		BackupsPath:  filepath.Join(configDir, defaultBackupsDir),
 		RuntimesPath: filepath.Join(configDir, defaultRuntimesDir),
 		DatabasePath: filepath.Join(configDir, defaultDatabaseFile),
-		Port:         defaultPort,
 	}
 
 	data, err := json.MarshalIndent(cfg, "", "  ")
@@ -70,4 +64,8 @@ func createDefaultConfig(configPath, configDir string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func GetPort() int {
+	return defaultPort
 }

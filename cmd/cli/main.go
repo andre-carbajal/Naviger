@@ -22,30 +22,28 @@ import (
 var BaseURL string
 
 func printHelp() {
-	fmt.Println("Uso: mc-cli [opciones] <recurso> <acción> [argumentos]")
-	fmt.Println("\nOpciones globales:")
-	fmt.Println("  --port <puerto>  Puerto del servidor (por defecto: 8080)")
-	fmt.Println("\nFormato recomendado: mc-cli <recurso> <acción>")
+	prog := filepath.Base(os.Args[0])
+	fmt.Printf("Uso: %s <recurso> <acción> [flags]\n\n", prog)
 	fmt.Println("Recursos y acciones:")
-	fmt.Println("  server create --name --version --loader --ram   Crear servidor")
-	fmt.Println("  server list                                     Listar servidores")
-	fmt.Println("  server start <id>                               Iniciar servidor")
-	fmt.Println("  server stop <id>                                Detener servidor")
-	fmt.Println("  server delete <id>                              Eliminar servidor")
-	fmt.Println("")
-	fmt.Println("  backup create <id> [nombre]                     Crear backup de servidor")
-	fmt.Println("  backup list [id]                                Listar backups (todos o por servidor)")
-	fmt.Println("  backup delete <nombre>                          Eliminar backup")
-	fmt.Println("")
-	fmt.Println("  ports get                                       Mostrar rango de puertos")
-	fmt.Println("  ports set --start <n> --end <m>                 Establecer rango de puertos")
-	fmt.Println("")
-	fmt.Println("  loaders        Muestra los loaders de servidores disponibles.")
-	fmt.Println("  logs <id>      Ver la consola de un servidor y enviar comandos.")
-	fmt.Println("  help           Muestra este mensaje de ayuda.")
-	fmt.Println("")
-	fmt.Println("Notas:")
-	fmt.Println("  - Puedes usar 'config ports' como alias antiguo para 'ports'.")
+	fmt.Printf("  %-60s %s\n", "server create --name <nombre> --version <versión> --loader <loader> --ram <MB>", "Crear nuevo servidor")
+	fmt.Printf("  %-60s %s\n", "server list", "Listar servidores")
+	fmt.Printf("  %-60s %s\n", "server start <id>", "Iniciar servidor")
+	fmt.Printf("  %-60s %s\n", "server stop <id>", "Detener servidor")
+	fmt.Printf("  %-60s %s\n", "server delete <id>", "Eliminar servidor")
+	fmt.Printf("  %-60s %s\n", "server logs <id>", "Ver consola del servidor y enviar comandos")
+	fmt.Println()
+	fmt.Printf("  %-60s %s\n", "backup create <id> [nombre]", "Crear backup de servidor")
+	fmt.Printf("  %-60s %s\n", "backup list [id]", "Listar backups (todos o por servidor)")
+	fmt.Printf("  %-60s %s\n", "backup delete <nombre>", "Eliminar backup")
+	fmt.Println()
+	fmt.Printf("  %-60s %s\n", "ports get", "Mostrar rango de puertos")
+	fmt.Printf("  %-60s %s\n", "ports set --start <n> --end <m>", "Establecer rango de puertos")
+	fmt.Println()
+	fmt.Printf("  %-60s %s\n", "loaders", "Muestra los loaders de servidores disponibles")
+	fmt.Printf("  %-60s %s\n", "help", "Muestra este mensaje de ayuda")
+	fmt.Println()
+	fmt.Println("Ejemplo:")
+	fmt.Printf("  %s server create --name \"Mi Servidor\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048\n", prog)
 }
 
 func parseFlags(fs *flag.FlagSet, args []string, ctx string) {
@@ -55,11 +53,11 @@ func parseFlags(fs *flag.FlagSet, args []string, ctx string) {
 }
 
 func main() {
-	port := flag.Int("port", 8080, "Puerto del servidor")
 	flag.Usage = printHelp
 	flag.Parse()
 
-	BaseURL = fmt.Sprintf("http://localhost:%d", *port)
+	port := config.GetPort()
+	BaseURL = fmt.Sprintf("http://localhost:%d", port)
 
 	args := flag.Args()
 	if len(args) < 1 {
