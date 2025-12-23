@@ -30,7 +30,10 @@ func (l *PaperLoader) GetSupportedVersions() ([]string, error) {
 	return l.getVersions()
 }
 
-func (l *PaperLoader) Load(versionID string, destDir string) error {
+func (l *PaperLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Buscando versión %s...", versionID)
+	}
 	fmt.Printf("[Paper Loader] Buscando versión %s...\n", versionID)
 
 	versions, err := l.getVersions()
@@ -50,6 +53,9 @@ func (l *PaperLoader) Load(versionID string, destDir string) error {
 		return fmt.Errorf("versión %s no encontrada en Paper", versionID)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Obteniendo último build..."
+	}
 	latestBuild, err := l.getLatestBuild(versionID)
 	if err != nil {
 		return fmt.Errorf("error obteniendo último build: %w", err)
@@ -59,6 +65,9 @@ func (l *PaperLoader) Load(versionID string, destDir string) error {
 		PaperAPIURL, versionID, latestBuild, versionID, latestBuild)
 
 	finalPath := filepath.Join(destDir, "server.jar")
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Descargando Paper server.jar desde: %s", downloadURL)
+	}
 	fmt.Printf("Descargando Paper server.jar desde: %s\n", downloadURL)
 
 	err = l.downloadFile(downloadURL, finalPath)
@@ -66,6 +75,9 @@ func (l *PaperLoader) Load(versionID string, destDir string) error {
 		return err
 	}
 
+	if progressChan != nil {
+		progressChan <- "Instalación completada."
+	}
 	fmt.Println("Instalación completada. El servidor está iniciando.")
 	return nil
 }

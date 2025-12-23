@@ -17,3 +17,9 @@ type BackupInfo struct {
 	Name string `json:"name"`
 	Size int64  `json:"size"`
 }
+
+type ProgressEvent struct {
+	ServerID string `json:"serverId"`
+	Message  string `json:"message"`
+	Progress int    `json:"progress"`
+}

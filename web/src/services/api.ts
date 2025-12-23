@@ -27,7 +27,9 @@ export const api = {
     getLoaderVersions: (loader: string) => apiInstance.get<string[]>(`/loaders/${loader}/versions`),
     getServers: () => apiInstance.get<Server[]>('/servers'),
     getServer: (id: string) => apiInstance.get<Server>(`/servers/${id}`),
-    createServer: (data: Omit<Server, 'id' | 'status' | 'port' | 'pid'>) => apiInstance.post<Server>('/servers', data),
+    createServer: (data: Omit<Server, 'id' | 'status' | 'port'> & {
+        requestId?: string
+    }) => apiInstance.post<Server>('/servers', data),
     updateServer: (id: string, data: {
         name?: string,
         ram?: number

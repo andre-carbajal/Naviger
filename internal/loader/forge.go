@@ -67,7 +67,10 @@ func (l *ForgeLoader) getLoaderVersions(minecraftVersion string) ([]string, erro
 	return versions, nil
 }
 
-func (l *ForgeLoader) Load(versionID string, destDir string) error {
+func (l *ForgeLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Buscando versión %s...", versionID)
+	}
 	fmt.Printf("[Forge Loader] Buscando versión %s...\n", versionID)
 
 	supportedVersions, err := l.GetSupportedVersions()
@@ -87,6 +90,9 @@ func (l *ForgeLoader) Load(versionID string, destDir string) error {
 		return fmt.Errorf("versión %s no encontrada en Forge", versionID)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Obteniendo versiones del loader..."
+	}
 	loaderVersions, err := l.getLoaderVersions(versionID)
 	if err != nil {
 		return fmt.Errorf("error obteniendo versiones del loader de Forge: %w", err)
@@ -100,6 +106,9 @@ func (l *ForgeLoader) Load(versionID string, destDir string) error {
 	downloadURL := fmt.Sprintf("https://maven.minecraftforge.net/net/minecraftforge/forge/%s/forge-%s-installer.jar", forgeVersion, forgeVersion)
 
 	installerPath := filepath.Join(destDir, "installer.jar")
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Descargando Forge installer.jar desde: %s", downloadURL)
+	}
 	fmt.Printf("Descargando Forge installer.jar desde: %s\n", downloadURL)
 
 	err = l.downloadFile(downloadURL, installerPath)
@@ -107,6 +116,9 @@ func (l *ForgeLoader) Load(versionID string, destDir string) error {
 		return err
 	}
 
+	if progressChan != nil {
+		progressChan <- "Ejecutando instalador de Forge..."
+	}
 	fmt.Println("Ejecutando instalador de Forge...")
 	cmd := exec.Command("java", "-jar", "installer.jar", "--installServer")
 	cmd.Dir = destDir
@@ -117,11 +129,17 @@ func (l *ForgeLoader) Load(versionID string, destDir string) error {
 		return fmt.Errorf("error ejecutando el instalador de Forge: %w", err)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Limpiando archivos de instalación..."
+	}
 	fmt.Println("Limpiando archivos de instalación...")
 	if err := os.Remove(installerPath); err != nil {
 		return fmt.Errorf("error eliminando el instalador: %w", err)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Instalación de Forge completada."
+	}
 	fmt.Println("Instalación de Forge completada.")
 	return nil
 }

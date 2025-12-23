@@ -35,7 +35,10 @@ func (l *FabricLoader) GetSupportedVersions() ([]string, error) {
 	return l.getGameVersions()
 }
 
-func (l *FabricLoader) Load(versionID string, destDir string) error {
+func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Buscando versión %s...", versionID)
+	}
 	fmt.Printf("[Fabric Loader] Buscando versión %s...\n", versionID)
 
 	gameVersions, err := l.getGameVersions()
@@ -55,6 +58,9 @@ func (l *FabricLoader) Load(versionID string, destDir string) error {
 		return fmt.Errorf("versión %s no encontrada en Fabric", versionID)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Obteniendo versiones del loader..."
+	}
 	loaderVersions, err := l.getLoaderVersions()
 	if err != nil {
 		return fmt.Errorf("error obteniendo versiones del loader de Fabric: %w", err)
@@ -64,6 +70,9 @@ func (l *FabricLoader) Load(versionID string, destDir string) error {
 	}
 	latestLoaderVersion := loaderVersions[0]
 
+	if progressChan != nil {
+		progressChan <- "Obteniendo última versión del instalador..."
+	}
 	installerVersion, err := l.getLatestInstallerVersion()
 	if err != nil {
 		return fmt.Errorf("error obteniendo la última versión del instalador: %w", err)
@@ -73,6 +82,9 @@ func (l *FabricLoader) Load(versionID string, destDir string) error {
 		FabricAPIURL, versionID, latestLoaderVersion, installerVersion)
 
 	finalPath := filepath.Join(destDir, "server.jar")
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Descargando Fabric server.jar desde: %s", downloadURL)
+	}
 	fmt.Printf("Descargando Fabric server.jar desde: %s\n", downloadURL)
 
 	err = l.downloadFile(downloadURL, finalPath)
@@ -80,6 +92,9 @@ func (l *FabricLoader) Load(versionID string, destDir string) error {
 		return err
 	}
 
+	if progressChan != nil {
+		progressChan <- "Instalación completada."
+	}
 	fmt.Println("Instalación completada. El servidor está iniciando.")
 	return nil
 }

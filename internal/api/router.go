@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"mc-manager/internal/app"
 	"mc-manager/internal/backup"
+	"mc-manager/internal/domain"
 	"mc-manager/internal/loader"
 	"mc-manager/internal/runner"
 	"mc-manager/internal/server"
@@ -67,6 +68,7 @@ func (api *Server) Start(listenAddr string) error {
 	mux.HandleFunc("PUT /settings/port-range", api.handleSetPortRange)
 
 	mux.HandleFunc("GET /ws/servers/{id}/console", api.handleConsole)
+	mux.HandleFunc("GET /ws/progress/{id}", api.handleProgress)
 
 	handler := api.corsMiddleware(mux)
 
@@ -238,22 +240,67 @@ func (api *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 
 func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name    string `json:"name"`
-		Version string `json:"version"`
-		Loader  string `json:"loader"`
-		RAM     int    `json:"ram"`
+		Name      string `json:"name"`
+		Version   string `json:"version"`
+		Loader    string `json:"loader"`
+		RAM       int    `json:"ram"`
+		RequestID string `json:"requestId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "JSON inválido", http.StatusBadRequest)
 		return
 	}
 
-	srv, err := api.Manager.CreateServer(req.Name, req.Loader, req.Version, req.RAM)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	progressChan := make(chan string)
+	hubID := "progress"
+	if req.RequestID != "" {
+		hubID = req.RequestID
 	}
-	json.NewEncoder(w).Encode(srv)
+	hub := api.HubManager.GetHub(hubID)
+
+	go func() {
+		for msg := range progressChan {
+			event := domain.ProgressEvent{
+				ServerID: "new-server",
+				Message:  msg,
+				Progress: -1,
+			}
+			jsonBytes, _ := json.Marshal(event)
+			hub.Broadcast(jsonBytes)
+		}
+	}()
+
+	go func() {
+		defer close(progressChan)
+		srv, err := api.Manager.CreateServer(req.Name, req.Loader, req.Version, req.RAM, progressChan)
+		if err != nil {
+			fmt.Printf("Error creating server: %v\n", err)
+			event := domain.ProgressEvent{
+				ServerID: "error",
+				Message:  fmt.Sprintf("Error: %v", err),
+				Progress: 0,
+			}
+			jsonBytes, _ := json.Marshal(event)
+			hub.Broadcast(jsonBytes)
+			return
+		}
+		event := domain.ProgressEvent{
+			ServerID: srv.ID,
+			Message:  "Server created successfully",
+			Progress: 100,
+		}
+		jsonBytes, _ := json.Marshal(event)
+		hub.Broadcast(jsonBytes)
+
+		// Clean up the hub after a short delay to allow message delivery
+		// In a real app we might want a better cleanup strategy
+		if req.RequestID != "" {
+			// api.HubManager.RemoveHub(req.RequestID) // Maybe too aggressive if client hasn't received it yet
+		}
+	}()
+
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte(`{"status": "creating"}`))
 }
 
 func (api *Server) handleStartServer(w http.ResponseWriter, r *http.Request) {
@@ -348,6 +395,16 @@ func (api *Server) handleConsole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hub := api.HubManager.GetHub(id)
+	hub.ServeWs(w, r)
+}
+
+func (api *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Falta ID", http.StatusBadRequest)
+		return
+	}
 	hub := api.HubManager.GetHub(id)
 	hub.ServeWs(w, r)
 }

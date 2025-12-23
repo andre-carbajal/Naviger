@@ -17,10 +17,15 @@ export const useServers = () => {
         }
     }, []);
 
-    const createServer = async (data: { name: string; loader: string; version: string; ram: number }) => {
+    const createServer = async (data: {
+        name: string;
+        loader: string;
+        version: string;
+        ram: number;
+        requestId?: string
+    }) => {
         try {
             await api.createServer(data);
-            await fetchServers();
             return true;
         } catch (err) {
             console.error(err);

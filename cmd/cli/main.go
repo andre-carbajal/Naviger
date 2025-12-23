@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -511,13 +512,51 @@ func handleCreate(name, version, loader string, ram int) {
 		os.Exit(1)
 	}
 
+	requestID := uuid.New().String()
+
 	payload := map[string]interface{}{
-		"name":    name,
-		"version": version,
-		"loader":  loader,
-		"ram":     ram,
+		"name":      name,
+		"version":   version,
+		"loader":    loader,
+		"ram":       ram,
+		"requestId": requestID,
 	}
 	jsonData, _ := json.Marshal(payload)
+
+	// Start WebSocket listener for progress
+	u, err := url.Parse(BaseURL)
+	if err != nil {
+		log.Fatal("Error parseando URL base:", err)
+	}
+	u.Scheme = "ws"
+	wsURL := fmt.Sprintf("%s/ws/progress/%s", u.String(), requestID)
+
+	done := make(chan struct{})
+
+	c, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		log.Printf("Advertencia: No se pudo conectar al WebSocket de progreso: %v", err)
+		close(done)
+	} else {
+		defer c.Close()
+		go func() {
+			defer close(done)
+			for {
+				_, message, err := c.ReadMessage()
+				if err != nil {
+					return
+				}
+				var event domain.ProgressEvent
+				if err := json.Unmarshal(message, &event); err == nil {
+					fmt.Printf("\r[Progreso] %s", event.Message)
+					if event.Progress == 100 {
+						fmt.Println()
+						return
+					}
+				}
+			}
+		}()
+	}
 
 	resp, err := http.Post(BaseURL+"/servers", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -530,9 +569,12 @@ func handleCreate(name, version, loader string, ram int) {
 		log.Fatalf("Error creando servidor: %s", string(body))
 	}
 
-	fmt.Println("Petición de creación recibida.")
-	fmt.Println("El servidor se está instalando en segundo plano.")
-	fmt.Println("Usa 'mc-cli server list' para ver el estado.")
+	fmt.Println("\nPetición de creación recibida. Esperando finalización...")
+
+	// Wait for completion if connected to WS
+	if c != nil {
+		<-done
+	}
 }
 
 func handleStart(id string) {

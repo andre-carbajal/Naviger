@@ -24,10 +24,13 @@ func NewManager(serversPath string, store *storage.GormStore) *Manager {
 	}
 }
 
-func (m *Manager) CreateServer(name string, loaderType string, version string, ram int) (*domain.Server, error) {
+func (m *Manager) CreateServer(name string, loaderType string, version string, ram int, progressChan chan<- string) (*domain.Server, error) {
 	id := uuid.New().String()
 	serverDir := filepath.Join(m.ServersPath, id)
 
+	if progressChan != nil {
+		progressChan <- "Asignando puerto..."
+	}
 	assignedPort, err := AllocatePort(m.Store)
 	if err != nil {
 		return nil, fmt.Errorf("error asignando puerto: %w", err)
@@ -43,11 +46,14 @@ func (m *Manager) CreateServer(name string, loaderType string, version string, r
 		return nil, fmt.Errorf("error filesystem: %w", err)
 	}
 
-	if err := downloader.Load(version, serverDir); err != nil {
+	if err := downloader.Load(version, serverDir, progressChan); err != nil {
 		os.RemoveAll(serverDir)
 		return nil, fmt.Errorf("error descarga: %w", err)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Configurando servidor..."
+	}
 	os.WriteFile(filepath.Join(serverDir, "eula.txt"), []byte("eula=true"), 0644)
 
 	if err := UpdateServerProperties(serverDir, assignedPort); err != nil {

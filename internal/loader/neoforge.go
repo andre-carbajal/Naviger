@@ -93,7 +93,10 @@ func (l *NeoForgeLoader) getLoaderVersions(minecraftVersion string) ([]string, e
 	return loaderVersionsList, nil
 }
 
-func (l *NeoForgeLoader) Load(versionID string, destDir string) error {
+func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Buscando versión %s...", versionID)
+	}
 	fmt.Printf("[NeoForge Loader] Buscando versión %s...\n", versionID)
 
 	supportedVersions, err := l.GetSupportedVersions()
@@ -113,6 +116,9 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string) error {
 		return fmt.Errorf("versión %s no encontrada en NeoForge", versionID)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Obteniendo versiones del loader..."
+	}
 	loaderVersions, err := l.getLoaderVersions(versionID)
 	if err != nil {
 		return fmt.Errorf("error obteniendo versiones del loader de NeoForge: %w", err)
@@ -126,6 +132,9 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string) error {
 	downloadURL := fmt.Sprintf("https://maven.neoforged.net/releases/net/neoforged/neoforge/%s/neoforge-%s-installer.jar", latestLoaderVersion, latestLoaderVersion)
 
 	installerPath := filepath.Join(destDir, "installer.jar")
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Descargando NeoForge installer.jar desde: %s", downloadURL)
+	}
 	fmt.Printf("Descargando NeoForge installer.jar desde: %s\n", downloadURL)
 
 	err = l.downloadFile(downloadURL, installerPath)
@@ -133,6 +142,9 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string) error {
 		return err
 	}
 
+	if progressChan != nil {
+		progressChan <- "Ejecutando instalador de NeoForge..."
+	}
 	fmt.Println("Ejecutando instalador de NeoForge...")
 	cmd := exec.Command("java", "-jar", "installer.jar", "--installServer")
 	cmd.Dir = destDir
@@ -143,11 +155,17 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string) error {
 		return fmt.Errorf("error ejecutando el instalador de NeoForge: %w", err)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Limpiando archivos de instalación..."
+	}
 	fmt.Println("Limpiando archivos de instalación...")
 	if err := os.Remove(installerPath); err != nil {
 		return fmt.Errorf("error eliminando el instalador: %w", err)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Instalación de NeoForge completada."
+	}
 	fmt.Println("Instalación de NeoForge completada.")
 	return nil
 }

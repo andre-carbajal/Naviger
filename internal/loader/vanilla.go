@@ -48,7 +48,10 @@ func (l *VanillaLoader) GetSupportedVersions() ([]string, error) {
 	return versions, nil
 }
 
-func (l *VanillaLoader) Load(versionID string, destDir string) error {
+func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Buscando versión %s...", versionID)
+	}
 	fmt.Printf("[Vanilla Loader] Buscando versión %s...\n", versionID)
 
 	manifest, err := l.fetchManifest()
@@ -67,12 +70,18 @@ func (l *VanillaLoader) Load(versionID string, destDir string) error {
 		return fmt.Errorf("versión %s no encontrada en Mojang", versionID)
 	}
 
+	if progressChan != nil {
+		progressChan <- "Obteniendo detalles de la versión..."
+	}
 	details, err := l.fetchVersionDetails(versionURL)
 	if err != nil {
 		return err
 	}
 
 	finalPath := filepath.Join(destDir, "server.jar")
+	if progressChan != nil {
+		progressChan <- fmt.Sprintf("Descargando server.jar desde: %s", details.Downloads.Server.URL)
+	}
 	fmt.Printf("Descargando server.jar desde: %s\n", details.Downloads.Server.URL)
 
 	err = l.downloadFile(details.Downloads.Server.URL, finalPath)
@@ -80,6 +89,9 @@ func (l *VanillaLoader) Load(versionID string, destDir string) error {
 		return err
 	}
 
+	if progressChan != nil {
+		progressChan <- "Instalación completada."
+	}
 	fmt.Println("Instalación completada. El servidor está iniciando.")
 	return nil
 }
