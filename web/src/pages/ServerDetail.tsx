@@ -34,7 +34,7 @@ const ServerDetail: React.FC = () => {
 
     useEffect(() => {
         fetchServer();
-        const interval = setInterval(fetchServer, 2000); // Poll for status updates
+        const interval = setInterval(fetchServer, 2000);
         return () => clearInterval(interval);
     }, [fetchServer]);
 

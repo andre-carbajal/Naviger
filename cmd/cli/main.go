@@ -523,7 +523,6 @@ func handleCreate(name, version, loader string, ram int) {
 	}
 	jsonData, _ := json.Marshal(payload)
 
-	// Start WebSocket listener for progress
 	u, err := url.Parse(BaseURL)
 	if err != nil {
 		log.Fatal("Error parseando URL base:", err)
@@ -571,7 +570,6 @@ func handleCreate(name, version, loader string, ram int) {
 
 	fmt.Println("\nPetición de creación recibida. Esperando finalización...")
 
-	// Wait for completion if connected to WS
 	if c != nil {
 		<-done
 	}

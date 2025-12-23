@@ -1,8 +1,8 @@
 import React from 'react';
-import { Play, Square, Terminal, Trash2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import type { Server } from '../types';
-import { Button } from './ui/Button';
+import {Play, Square, Terminal, Trash2} from 'lucide-react';
+import {Link} from 'react-router-dom';
+import type {Server} from '../types';
+import {Button} from './ui/Button';
 
 interface ServerCardProps {
     server: Server;
@@ -11,7 +11,45 @@ interface ServerCardProps {
     onDelete: (id: string) => void;
 }
 
-const ServerCard: React.FC<ServerCardProps> = ({ server, onStart, onStop, onDelete }) => {
+const ServerCard: React.FC<ServerCardProps> = ({server, onStart, onStop, onDelete}) => {
+    if (server.status === 'CREATING') {
+        return (
+            <div className="card">
+                <div className="card-header">
+                    <h3 className="card-title">{server.name}</h3>
+                    <span className="status-badge status-creating">CREATING</span>
+                </div>
+                <div className="card-content">
+                    <div className="p-4 text-center">
+                        <div className="mb-2">Creating server...</div>
+                        <div className="text-sm text-gray-500">{server.progressMessage || 'Initializing...'}</div>
+                        <div className="mt-4 w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700"
+                             style={{backgroundColor: '#374151', marginTop: '1rem'}}>
+                            <div
+                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                                style={{width: `${server.progress || 0}%`, backgroundColor: '#3b82f6'}}
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+                <div className="card-actions">
+                    <Button disabled>
+                        <Play size={16}/> Start
+                    </Button>
+                    <Button variant="secondary" disabled>
+                        <Square size={16} fill="currentColor"/> Stop
+                    </Button>
+                    <Button variant="secondary" disabled>
+                        <Terminal size={16}/> Console
+                    </Button>
+                    <Button variant="danger" disabled>
+                        <Trash2 size={16}/> Delete
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="card">
             <div className="card-header">
@@ -38,16 +76,16 @@ const ServerCard: React.FC<ServerCardProps> = ({ server, onStart, onStop, onDele
             </div>
             <div className="card-actions">
                 <Button onClick={() => onStart(server.id)} disabled={server.status === 'RUNNING'}>
-                    <Play size={16} /> Start
+                    <Play size={16}/> Start
                 </Button>
                 <Button variant="secondary" onClick={() => onStop(server.id)} disabled={server.status === 'STOPPED'}>
-                    <Square size={16} fill="currentColor" /> Stop
+                    <Square size={16} fill="currentColor"/> Stop
                 </Button>
-                <Link to={`/servers/${server.id}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-                    <Terminal size={16} /> Console
+                <Link to={`/servers/${server.id}`} className="btn btn-secondary" style={{textDecoration: 'none'}}>
+                    <Terminal size={16}/> Console
                 </Link>
                 <Button variant="danger" onClick={() => onDelete(server.id)}>
-                    <Trash2 size={16} /> Delete
+                    <Trash2 size={16}/> Delete
                 </Button>
             </div>
         </div>

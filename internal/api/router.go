@@ -259,11 +259,17 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 	hub := api.HubManager.GetHub(hubID)
 
 	go func() {
+		progress := 0
 		for msg := range progressChan {
+			progress += 10
+			if progress > 90 {
+				progress = 90
+			}
+
 			event := domain.ProgressEvent{
 				ServerID: "new-server",
 				Message:  msg,
-				Progress: -1,
+				Progress: progress,
 			}
 			jsonBytes, _ := json.Marshal(event)
 			hub.Broadcast(jsonBytes)
@@ -284,6 +290,7 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 			hub.Broadcast(jsonBytes)
 			return
 		}
+
 		event := domain.ProgressEvent{
 			ServerID: srv.ID,
 			Message:  "Server created successfully",
@@ -291,16 +298,16 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 		}
 		jsonBytes, _ := json.Marshal(event)
 		hub.Broadcast(jsonBytes)
-
-		// Clean up the hub after a short delay to allow message delivery
-		// In a real app we might want a better cleanup strategy
-		if req.RequestID != "" {
-			// api.HubManager.RemoveHub(req.RequestID) // Maybe too aggressive if client hasn't received it yet
-		}
 	}()
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
-	w.Write([]byte(`{"status": "creating"}`))
+
+	response := map[string]string{
+		"status": "creating",
+		"id":     req.RequestID,
+	}
+	json.NewEncoder(w).Encode(response)
 }
 
 func (api *Server) handleStartServer(w http.ResponseWriter, r *http.Request) {

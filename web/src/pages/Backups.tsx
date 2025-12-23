@@ -1,16 +1,17 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {api} from '../services/api';
-import type {Backup, Server} from '../types';
+import type {Backup} from '../types';
 import {Button} from '../components/ui/Button';
 import {Plus, RotateCcw, Trash2} from 'lucide-react';
 import CreateBackupModal from '../components/CreateBackupModal';
 import RestoreBackupModal from '../components/RestoreBackupModal';
+import {useServers} from '../hooks/useServers';
 
 const Backups: React.FC = () => {
     const {id} = useParams<{ id: string }>();
     const [backups, setBackups] = useState<Backup[]>([]);
-    const [servers, setServers] = useState<Server[]>([]);
+    const {servers, refresh: refreshServers} = useServers();
     const [isCreateModalOpen, setCreateModalOpen] = useState(false);
     const [restoreModalOpen, setRestoreModalOpen] = useState(false);
     const [selectedBackup, setSelectedBackup] = useState<string | null>(null);
@@ -21,32 +22,23 @@ const Backups: React.FC = () => {
             setBackups(response.data || []);
         }).catch(error => {
             console.error("Failed to fetch backups:", error);
-            setBackups([]); // Ensure backups is always an array
+            setBackups([]);
         });
     }, [id]);
 
-    const fetchServers = useCallback(() => {
-        api.getServers().then(res => {
-            setServers(res.data || []);
-        }).catch(err => {
-            console.error("Failed to fetch servers:", err);
-        });
-    }, []);
-
     useEffect(() => {
         fetchBackups();
-        fetchServers();
-    }, [id, fetchBackups, fetchServers]);
+    }, [id, fetchBackups]);
 
     const handleCreateBackup = async (serverId: string, name: string) => {
         await api.createBackup(serverId, name);
-        fetchBackups(); // Refresh the list after creation
+        fetchBackups();
     };
 
     const handleDelete = (backupName: string) => {
         if (window.confirm(`Are you sure you want to delete the backup "${backupName}"?`)) {
             api.deleteBackup(backupName).then(() => {
-                fetchBackups(); // Refresh the list after deletion
+                fetchBackups();
             }).catch(error => {
                 console.error("Failed to delete backup:", error);
             });
@@ -61,7 +53,7 @@ const Backups: React.FC = () => {
     const handleRestore = async (backupName: string, data: any) => {
         await api.restoreBackup(backupName, data);
         alert('Backup restored successfully!');
-        fetchServers(); // Refresh servers list as status might change or new server created
+        refreshServers();
     };
 
     const isGlobalView = !id || id === 'all';

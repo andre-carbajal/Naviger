@@ -1,0 +1,233 @@
+import type {ReactNode} from 'react';
+import React, {createContext, useCallback, useEffect, useRef, useState} from 'react';
+import {api} from '../services/api';
+import type {Server} from '../types';
+
+interface ServerContextType {
+    servers: Server[];
+    loading: boolean;
+    createServer: (data: {
+        name: string;
+        loader: string;
+        version: string;
+        ram: number;
+        requestId?: string
+    }) => Promise<boolean>;
+    startServer: (id: string) => Promise<void>;
+    stopServer: (id: string) => Promise<void>;
+    deleteServer: (id: string) => Promise<void>;
+    refresh: () => Promise<void>;
+}
+
+export const ServerContext = createContext<ServerContextType | undefined>(undefined);
+
+export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) => {
+    const [servers, setServers] = useState<Server[]>([]);
+    const [loading, setLoading] = useState(true);
+    const activeSockets = useRef<Set<string>>(new Set());
+    const wsMap = useRef<Map<string, WebSocket>>(new Map());
+
+    const fetchServers = useCallback(async () => {
+        try {
+            const response = await api.getServers();
+            setServers(prevServers => {
+                const creatingServers = prevServers.filter(s => s.status === 'CREATING');
+                const newServers = response.data || [];
+
+                const newServerIds = new Set(newServers.map(s => s.id));
+                const uniqueCreating = creatingServers.filter(s => !newServerIds.has(s.id));
+
+                return [...newServers, ...uniqueCreating];
+            });
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const removeCreatingServer = useCallback((id: string) => {
+        setServers(prev => prev.filter(s => s.id !== id));
+        const stored = localStorage.getItem('creating_servers');
+        if (stored) {
+            try {
+                const list: Server[] = JSON.parse(stored);
+                const newList = list.filter(s => s.id !== id);
+                localStorage.setItem('creating_servers', JSON.stringify(newList));
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        const ws = wsMap.current.get(id);
+        if (ws) {
+            ws.close();
+            wsMap.current.delete(id);
+        }
+        activeSockets.current.delete(id);
+    }, []);
+
+    const trackProgress = useCallback((requestId: string) => {
+        if (activeSockets.current.has(requestId)) return;
+
+        activeSockets.current.add(requestId);
+        const ws = new WebSocket(`ws://localhost:23008/ws/progress/${requestId}`);
+        wsMap.current.set(requestId, ws);
+
+        ws.onmessage = (event) => {
+            try {
+                const msgData = JSON.parse(event.data);
+
+                if (msgData.progress === 100) {
+                    ws.close();
+                    removeCreatingServer(requestId);
+                    fetchServers();
+                } else {
+                    setServers(prev => prev.map(s => {
+                        if (s.id === requestId) {
+                            return {
+                                ...s,
+                                progress: msgData.progress,
+                                progressMessage: msgData.message
+                            };
+                        }
+                        return s;
+                    }));
+                }
+            } catch (e) {
+                console.error("Error parsing progress message", e);
+            }
+        };
+
+        ws.onerror = (e) => {
+            console.error("WebSocket error", e);
+            setServers(prev => prev.map(s => {
+                if (s.id === requestId) {
+                    return {
+                        ...s,
+                        progressMessage: 'Error connecting to progress stream'
+                    };
+                }
+                return s;
+            }));
+        };
+
+        ws.onclose = () => {
+            activeSockets.current.delete(requestId);
+            wsMap.current.delete(requestId);
+        };
+    }, [fetchServers, removeCreatingServer]);
+
+    useEffect(() => {
+        const stored = localStorage.getItem('creating_servers');
+        if (stored) {
+            try {
+                const creatingServers: Server[] = JSON.parse(stored);
+                setServers(prev => {
+                    const existingIds = new Set(prev.map(s => s.id));
+                    const toAdd = creatingServers.filter(s => !existingIds.has(s.id));
+                    return [...prev, ...toAdd];
+                });
+                creatingServers.forEach(s => trackProgress(s.id));
+            } catch (e) {
+                console.error(e);
+            }
+        }
+    }, [trackProgress]);
+
+    const createServer = async (data: {
+        name: string;
+        loader: string;
+        version: string;
+        ram: number;
+        requestId?: string
+    }) => {
+        const tempId = data.requestId || `temp-${Date.now()}`;
+
+        const tempServer: Server = {
+            id: tempId,
+            name: data.name,
+            loader: data.loader,
+            version: data.version,
+            ram: data.ram,
+            port: 0,
+            status: 'CREATING',
+            progress: 0,
+            progressMessage: 'Initializing...'
+        };
+
+        setServers(prev => [...prev, tempServer]);
+
+        const stored = localStorage.getItem('creating_servers');
+        const list: Server[] = stored ? JSON.parse(stored) : [];
+        list.push(tempServer);
+        localStorage.setItem('creating_servers', JSON.stringify(list));
+
+        trackProgress(tempId);
+
+        try {
+            await api.createServer(data);
+            return true;
+        } catch (err) {
+            console.error(err);
+            removeCreatingServer(tempId);
+            throw err;
+        }
+    };
+
+    const startServer = async (id: string) => {
+        try {
+            setServers(prev => prev.map(s => s.id === id ? {...s, status: 'STARTING'} : s));
+            await api.startServer(id);
+        } catch (err) {
+            console.error(err);
+            await fetchServers();
+        }
+    };
+
+    const stopServer = async (id: string) => {
+        try {
+            await api.stopServer(id);
+            await fetchServers();
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const deleteServer = async (id: string) => {
+        const isCreating = servers.find(s => s.id === id)?.status === 'CREATING';
+
+        if (isCreating) {
+            removeCreatingServer(id);
+            return;
+        }
+
+        try {
+            setServers(prev => prev.filter(s => s.id !== id));
+            await api.deleteServer(id);
+        } catch (err) {
+            console.error(err);
+            await fetchServers();
+        }
+    };
+
+    useEffect(() => {
+        fetchServers();
+        const interval = setInterval(fetchServers, 5000);
+        return () => clearInterval(interval);
+    }, [fetchServers]);
+
+    return (
+        <ServerContext.Provider value={{
+            servers,
+            loading,
+            createServer,
+            startServer,
+            stopServer,
+            deleteServer,
+            refresh: fetchServers
+        }}>
+            {children}
+        </ServerContext.Provider>
+    );
+};

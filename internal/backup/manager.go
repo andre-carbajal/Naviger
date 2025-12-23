@@ -60,7 +60,6 @@ func (m *Manager) ListAllBackups() ([]BackupInfo, error) {
 
 		info, err := file.Info()
 		if err != nil {
-			// Log o skip
 			continue
 		}
 		backups = append(backups, BackupInfo{
@@ -97,7 +96,6 @@ func (m *Manager) ListBackups(serverID string) ([]BackupInfo, error) {
 		if strings.HasPrefix(file.Name(), safeName) {
 			info, err := file.Info()
 			if err != nil {
-				// Log o skip
 				continue
 			}
 			backups = append(backups, BackupInfo{
@@ -283,7 +281,6 @@ func unzip(src, dest string) error {
 	for _, f := range r.File {
 		fpath := filepath.Join(dest, f.Name)
 
-		// Check for ZipSlip
 		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
 			return fmt.Errorf("%s: illegal file path", fpath)
 		}

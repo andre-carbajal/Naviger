@@ -396,6 +396,11 @@ nav {
     color: white;
 }
 
+.status-creating {
+    background-color: #3b82f6;
+    color: white;
+}
+
 .console-view {
     height: 100%;
     width: 100%;
