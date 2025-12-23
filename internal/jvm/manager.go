@@ -29,54 +29,22 @@ func (m *Manager) EnsureJava(version int) (string, error) {
 		javaBinName = "java.exe"
 	}
 
-	if !isTrueEnv("MC_MANAGER_FORCE_DOWNLOAD") {
-		if p := os.Getenv("MC_MANAGER_JAVA_PATH"); p != "" {
-			candidate := p
-			if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
-				candidate = filepath.Join(candidate, "bin", javaBinName)
-			}
-			if _, err := os.Stat(candidate); err == nil {
-				if ok, _ := validateJavaVersion(candidate, version); ok {
-					abs, err := filepath.Abs(candidate)
-					if err == nil {
-						return abs, nil
-					}
-				}
-			}
-		}
+	isValid := func(path string) bool {
+		ok, _ := validateJavaVersion(path, version)
+		return ok
+	}
 
-		if jh := os.Getenv("JAVA_HOME"); jh != "" {
-			candidate := filepath.Join(jh, "bin", javaBinName)
-			if _, err := os.Stat(candidate); err == nil {
-				if ok, _ := validateJavaVersion(candidate, version); ok {
-					abs, err := filepath.Abs(candidate)
-					if err == nil {
-						return abs, nil
-					}
-				}
-			}
-		}
-
-		if fi, err := os.Stat(installDir); err == nil && fi.IsDir() {
-			if found, err := findJavaBin(installDir, javaBinName); err == nil {
-				if ok, _ := validateJavaVersion(found, version); ok {
-					abs, err := filepath.Abs(found)
-					if err == nil {
-						return abs, nil
-					}
+	if fi, err := os.Stat(installDir); err == nil && fi.IsDir() {
+		if found, err := findJavaBin(installDir, javaBinName); err == nil {
+			if isValid(found) {
+				if abs, err := filepath.Abs(found); err == nil {
+					return abs, nil
 				}
 			}
 		}
 	}
 
-	javaExec := filepath.Join(installDir, "bin", javaBinName)
-	if _, err := os.Stat(javaExec); err == nil {
-		if ok, _ := validateJavaVersion(javaExec, version); ok {
-			return javaExec, nil
-		}
-	}
-
-	fmt.Printf("☕ Java %d no detectado. Iniciando instalación automática (%s)...\n", version, runtime.GOOS)
+	fmt.Printf("Java %d no detectado. Iniciando instalación automática (%s)...\n", version, runtime.GOOS)
 
 	if err := m.downloadAndInstall(version, installDir); err != nil {
 		_ = os.RemoveAll(installDir)
@@ -246,9 +214,4 @@ func validateJavaVersion(javaPath string, required int) (bool, error) {
 	}
 
 	return major >= required, nil
-}
-
-func isTrueEnv(name string) bool {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv(name)))
-	return v == "1" || v == "true" || v == "yes"
 }
