@@ -61,6 +61,7 @@ func (api *Server) Start(listenAddr string) error {
 
 	mux.HandleFunc("GET /backups", api.handleListAllBackups)
 	mux.HandleFunc("DELETE /backups/{name}", api.handleDeleteBackup)
+	mux.HandleFunc("POST /backups/{name}/restore", api.handleRestoreBackup)
 
 	mux.HandleFunc("GET /settings/port-range", api.handleGetPortRange)
 	mux.HandleFunc("PUT /settings/port-range", api.handleSetPortRange)
@@ -109,6 +110,34 @@ func (api *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (api *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		http.Error(w, "Falta nombre del backup", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		TargetServerID   string `json:"targetServerId"`
+		NewServerName    string `json:"newServerName"`
+		NewServerRAM     int    `json:"newServerRam"`
+		NewServerLoader  string `json:"newServerLoader"`
+		NewServerVersion string `json:"newServerVersion"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		return
+	}
+
+	if err := api.BackupManager.RestoreBackup(name, req.TargetServerID, req.NewServerName, req.NewServerRAM, req.NewServerLoader, req.NewServerVersion); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "restored"}`))
 }
 
 func (api *Server) handleListBackupsByServer(w http.ResponseWriter, r *http.Request) {

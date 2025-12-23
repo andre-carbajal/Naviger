@@ -4,12 +4,16 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"mc-manager/internal/domain"
+	"mc-manager/internal/server"
 	"mc-manager/internal/storage"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Manager struct {
@@ -189,6 +193,131 @@ func (m *Manager) CreateBackup(serverID string, backupName string) (string, erro
 	}
 
 	return backupFilePath, nil
+}
+
+func (m *Manager) RestoreBackup(backupName string, targetServerID string, newServerName string, newServerRAM int, newServerLoader, newServerVersion string) error {
+	backupPath := filepath.Join(m.BackupsPath, backupName)
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		return fmt.Errorf("backup not found")
+	}
+
+	var targetDir string
+	var targetPort int
+
+	if targetServerID != "" {
+		srv, err := m.Store.GetServerByID(targetServerID)
+		if err != nil {
+			return err
+		}
+		if srv == nil {
+			return fmt.Errorf("server not found")
+		}
+		if srv.Status != "STOPPED" {
+			return fmt.Errorf("server must be stopped to restore backup")
+		}
+
+		targetDir = filepath.Join(m.ServersPath, srv.ID)
+		targetPort = srv.Port
+
+		files, err := os.ReadDir(targetDir)
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			os.RemoveAll(filepath.Join(targetDir, file.Name()))
+		}
+
+	} else {
+		if newServerName == "" {
+			return fmt.Errorf("server name is required for new server")
+		}
+
+		id := uuid.New().String()
+		targetDir = filepath.Join(m.ServersPath, id)
+
+		port, err := server.AllocatePort(m.Store)
+		if err != nil {
+			return err
+		}
+		targetPort = port
+
+		if err := os.MkdirAll(targetDir, 0755); err != nil {
+			return err
+		}
+
+		newServer := &domain.Server{
+			ID:        id,
+			Name:      newServerName,
+			Version:   newServerVersion,
+			Loader:    newServerLoader,
+			Port:      targetPort,
+			RAM:       newServerRAM,
+			Status:    "STOPPED",
+			CreatedAt: time.Now(),
+		}
+
+		if err := m.Store.SaveServer(newServer); err != nil {
+			os.RemoveAll(targetDir)
+			return err
+		}
+	}
+
+	if err := unzip(backupPath, targetDir); err != nil {
+		return fmt.Errorf("failed to unzip backup: %w", err)
+	}
+
+	if err := server.UpdateServerProperties(targetDir, targetPort); err != nil {
+		return fmt.Errorf("failed to update server properties: %w", err)
+	}
+
+	return nil
+}
+
+func unzip(src, dest string) error {
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		fpath := filepath.Join(dest, f.Name)
+
+		// Check for ZipSlip
+		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return fmt.Errorf("%s: illegal file path", fpath)
+		}
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, os.ModePerm)
+			continue
+		}
+
+		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return err
+		}
+
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+
+		_, err = io.Copy(outFile, rc)
+
+		outFile.Close()
+		rc.Close()
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func sanitizeFileName(name string) string {

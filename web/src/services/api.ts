@@ -41,4 +41,11 @@ export const api = {
     listAllBackups: () => apiInstance.get<Backup[]>('/backups'),
     createBackup: (serverId: string, name?: string) => apiInstance.post(`/servers/${serverId}/backup`, {name}),
     deleteBackup: (backupName: string) => apiInstance.delete(`/backups/${backupName}`),
+    restoreBackup: (backupName: string, data: {
+        targetServerId?: string,
+        newServerName?: string,
+        newServerRam?: number,
+        newServerLoader?: string,
+        newServerVersion?: string
+    }) => apiInstance.post(`/backups/${backupName}/restore`, data),
 };

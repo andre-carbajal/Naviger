@@ -3,14 +3,17 @@ import {useParams} from 'react-router-dom';
 import {api} from '../services/api';
 import type {Backup, Server} from '../types';
 import {Button} from '../components/ui/Button';
-import {Plus, Trash2} from 'lucide-react';
+import {Plus, RotateCcw, Trash2} from 'lucide-react';
 import CreateBackupModal from '../components/CreateBackupModal';
+import RestoreBackupModal from '../components/RestoreBackupModal';
 
 const Backups: React.FC = () => {
     const {id} = useParams<{ id: string }>();
     const [backups, setBackups] = useState<Backup[]>([]);
     const [servers, setServers] = useState<Server[]>([]);
     const [isCreateModalOpen, setCreateModalOpen] = useState(false);
+    const [restoreModalOpen, setRestoreModalOpen] = useState(false);
+    const [selectedBackup, setSelectedBackup] = useState<string | null>(null);
 
     const fetchBackups = useCallback(() => {
         const promise = id && id !== 'all' ? api.listBackups(id) : api.listAllBackups();
@@ -32,9 +35,7 @@ const Backups: React.FC = () => {
 
     useEffect(() => {
         fetchBackups();
-        if (!id || id === 'all') {
-            fetchServers();
-        }
+        fetchServers();
     }, [id, fetchBackups, fetchServers]);
 
     const handleCreateBackup = async (serverId: string, name: string) => {
@@ -50,6 +51,17 @@ const Backups: React.FC = () => {
                 console.error("Failed to delete backup:", error);
             });
         }
+    };
+
+    const handleRestoreClick = (backupName: string) => {
+        setSelectedBackup(backupName);
+        setRestoreModalOpen(true);
+    };
+
+    const handleRestore = async (backupName: string, data: any) => {
+        await api.restoreBackup(backupName, data);
+        alert('Backup restored successfully!');
+        fetchServers(); // Refresh servers list as status might change or new server created
     };
 
     const isGlobalView = !id || id === 'all';
@@ -77,9 +89,14 @@ const Backups: React.FC = () => {
                             <td>{backup.name}</td>
                             <td>{(backup.size / 1024 / 1024).toFixed(2)} MB</td>
                             <td>
-                                <Button variant="danger" onClick={() => handleDelete(backup.name)}>
-                                    <Trash2 size={16}/> Delete
-                                </Button>
+                                <div style={{display: 'flex', gap: '5px'}}>
+                                    <Button variant="secondary" onClick={() => handleRestoreClick(backup.name)}>
+                                        <RotateCcw size={16}/> Restore
+                                    </Button>
+                                    <Button variant="danger" onClick={() => handleDelete(backup.name)}>
+                                        <Trash2 size={16}/> Delete
+                                    </Button>
+                                </div>
                             </td>
                         </tr>
                     ))}
@@ -101,6 +118,19 @@ const Backups: React.FC = () => {
                 servers={servers}
                 defaultServerId={!isGlobalView ? id : undefined}
             />
+
+            {selectedBackup && (
+                <RestoreBackupModal
+                    isOpen={restoreModalOpen}
+                    onClose={() => {
+                        setRestoreModalOpen(false);
+                        setSelectedBackup(null);
+                    }}
+                    onRestore={handleRestore}
+                    backupName={selectedBackup}
+                    servers={servers}
+                />
+            )}
         </div>
     );
 };

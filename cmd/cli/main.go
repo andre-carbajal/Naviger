@@ -35,6 +35,8 @@ func printHelp() {
 	fmt.Printf("  %-60s %s\n", "backup create <id> [nombre]", "Crear backup de servidor")
 	fmt.Printf("  %-60s %s\n", "backup list [id]", "Listar backups (todos o por servidor)")
 	fmt.Printf("  %-60s %s\n", "backup delete <nombre>", "Eliminar backup")
+	fmt.Printf("  %-60s %s\n", "backup restore <nombre> --target <id>", "Restaurar backup en servidor existente")
+	fmt.Printf("  %-60s %s\n", "backup restore <nombre> --new --name <nombre> --version <ver> --loader <loader> --ram <MB>", "Restaurar backup en servidor nuevo")
 	fmt.Println()
 	fmt.Printf("  %-60s %s\n", "ports get", "Mostrar rango de puertos")
 	fmt.Printf("  %-60s %s\n", "ports set --start <n> --end <m>", "Establecer rango de puertos")
@@ -90,6 +92,14 @@ func main() {
 	backupCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
 	backupListCmd := flag.NewFlagSet("list", flag.ExitOnError)
 	backupDeleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
+	backupRestoreCmd := flag.NewFlagSet("restore", flag.ExitOnError)
+
+	backupRestoreTarget := backupRestoreCmd.String("target", "", "ID del servidor destino (para restaurar en existente)")
+	backupRestoreNew := backupRestoreCmd.Bool("new", false, "Crear nuevo servidor desde backup")
+	backupRestoreName := backupRestoreCmd.String("name", "", "Nombre del nuevo servidor")
+	backupRestoreVer := backupRestoreCmd.String("version", "1.20.1", "Versión del nuevo servidor")
+	backupRestoreLoader := backupRestoreCmd.String("loader", "vanilla", "Loader del nuevo servidor")
+	backupRestoreRam := backupRestoreCmd.Int("ram", 2048, "RAM del nuevo servidor")
 
 	portsGetCmd := flag.NewFlagSet("get", flag.ExitOnError)
 	portsSetCmd := flag.NewFlagSet("set", flag.ExitOnError)
@@ -158,7 +168,7 @@ func main() {
 	case "backup":
 		if len(cmdArgs) < 1 {
 			fmt.Println("Uso: mc-cli backup <subcomando>")
-			fmt.Println("Subcomandos: create, list, delete")
+			fmt.Println("Subcomandos: create, list, delete, restore")
 			os.Exit(1)
 		}
 		sub := cmdArgs[0]
@@ -192,10 +202,18 @@ func main() {
 			}
 			handleDeleteBackup(backupDeleteCmd.Arg(0))
 
+		case "restore":
+			parseFlags(backupRestoreCmd, subArgs, "backup restore")
+			if backupRestoreCmd.NArg() < 1 {
+				log.Fatal("Error: Debes especificar el nombre del backup.")
+			}
+			backupName := backupRestoreCmd.Arg(0)
+			handleRestoreBackup(backupName, *backupRestoreTarget, *backupRestoreNew, *backupRestoreName, *backupRestoreVer, *backupRestoreLoader, *backupRestoreRam)
+
 		default:
 			fmt.Println("Subcomando desconocido para 'backup':", sub)
 			fmt.Println("Uso: mc-cli backup <subcomando>")
-			fmt.Println("Subcomandos: create, list, delete")
+			fmt.Println("Subcomandos: create, list, delete, restore")
 			os.Exit(1)
 		}
 
@@ -306,6 +324,42 @@ func handleDeleteBackup(name string) {
 	}
 
 	fmt.Println("Backup eliminado exitosamente.")
+}
+
+func handleRestoreBackup(backupName, targetID string, isNew bool, newName, newVer, newLoader string, newRam int) {
+	reqURL := fmt.Sprintf("%s/backups/%s/restore", BaseURL, backupName)
+
+	payload := map[string]interface{}{}
+
+	if isNew {
+		if newName == "" {
+			log.Fatal("Error: Debes especificar --name para el nuevo servidor")
+		}
+		payload["newServerName"] = newName
+		payload["newServerVersion"] = newVer
+		payload["newServerLoader"] = newLoader
+		payload["newServerRam"] = newRam
+	} else {
+		if targetID == "" {
+			log.Fatal("Error: Debes especificar --target <ID> o usar --new")
+		}
+		payload["targetServerId"] = targetID
+	}
+
+	jsonData, _ := json.Marshal(payload)
+
+	resp, err := http.Post(reqURL, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Fatalf("Error conectando al Daemon: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Fatalf("Error restaurando backup: %s", string(body))
+	}
+
+	fmt.Println("Backup restaurado exitosamente.")
 }
 
 func handleListAllBackups() {
