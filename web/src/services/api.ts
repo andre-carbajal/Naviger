@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type {Backup, Server} from '../types';
+import type { Backup, Server } from '../types';
 
 const apiInstance = axios.create({
     baseURL: 'http://localhost:23008',
@@ -14,7 +14,7 @@ apiInstance.interceptors.response.use(
     (error) => {
         if (error.code === "ERR_NETWORK") {
             const event = new CustomEvent('network-error', {
-                detail: {message: 'Failed to connect to the server. Please check your connection and try again.'}
+                detail: { message: 'Failed to connect to the server. Please check your connection and try again.' }
             });
             window.dispatchEvent(event);
         }
@@ -41,8 +41,9 @@ export const api = {
     updatePortRange: (data: { start: number, end: number }) => apiInstance.put('/settings/port-range', data),
     listBackups: (serverId: string) => apiInstance.get<Backup[]>(`/servers/${serverId}/backups`),
     listAllBackups: () => apiInstance.get<Backup[]>('/backups'),
-    createBackup: (serverId: string, name?: string) => apiInstance.post(`/servers/${serverId}/backup`, {name}),
+    createBackup: (serverId: string, name?: string, requestId?: string) => apiInstance.post<{ status: string, id: string }>(`/servers/${serverId}/backup`, { name, requestId }),
     deleteBackup: (backupName: string) => apiInstance.delete(`/backups/${backupName}`),
+    cancelBackupCreation: (requestId: string) => apiInstance.delete(`/backups/progress/${requestId}`),
     restoreBackup: (backupName: string, data: {
         targetServerId?: string,
         newServerName?: string,

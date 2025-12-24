@@ -2,6 +2,7 @@ package backup
 
 import (
 	"archive/zip"
+	"context"
 	"fmt"
 	"io"
 	"mc-manager/internal/domain"
@@ -54,7 +55,7 @@ func (m *Manager) ListAllBackups() ([]BackupInfo, error) {
 
 	var backups []BackupInfo
 	for _, file := range files {
-		if file.IsDir() {
+		if file.IsDir() || strings.HasSuffix(file.Name(), ".temp") {
 			continue
 		}
 
@@ -89,7 +90,7 @@ func (m *Manager) ListBackups(serverID string) ([]BackupInfo, error) {
 
 	var backups []BackupInfo
 	for _, file := range files {
-		if file.IsDir() {
+		if file.IsDir() || strings.HasSuffix(file.Name(), ".temp") {
 			continue
 		}
 
@@ -108,7 +109,7 @@ func (m *Manager) ListBackups(serverID string) ([]BackupInfo, error) {
 	return backups, nil
 }
 
-func (m *Manager) CreateBackup(serverID string, backupName string) (string, error) {
+func (m *Manager) CreateBackup(ctx context.Context, serverID string, backupName string, progressChan chan<- domain.ProgressEvent) (string, error) {
 	serverDir := filepath.Join(m.ServersPath, serverID)
 	if _, err := os.Stat(serverDir); os.IsNotExist(err) {
 		return "", fmt.Errorf("el directorio del servidor con ID '%s' no existe", serverID)
@@ -129,23 +130,39 @@ func (m *Manager) CreateBackup(serverID string, backupName string) (string, erro
 	timestamp := time.Now().Format("20060102-150405")
 	backupFileName := fmt.Sprintf("%s-%s.zip", safeName, timestamp)
 	backupFilePath := filepath.Join(m.BackupsPath, backupFileName)
+	tempBackupFilePath := backupFilePath + ".temp"
 
 	if err := os.MkdirAll(m.BackupsPath, 0755); err != nil {
 		return "", fmt.Errorf("no se pudo crear el directorio de backups: %w", err)
 	}
 
-	backupFile, err := os.Create(backupFilePath)
+	var totalSize int64
+	filepath.Walk(serverDir, func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			totalSize += info.Size()
+		}
+		return nil
+	})
+
+	backupFile, err := os.Create(tempBackupFilePath)
 	if err != nil {
 		return "", fmt.Errorf("no se pudo crear el archivo de backup: %w", err)
 	}
-	defer backupFile.Close()
 
 	zipWriter := zip.NewWriter(backupFile)
-	defer zipWriter.Close()
+
+	var processedSize int64
+	var lastProgress int
 
 	err = filepath.Walk(serverDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
 
 		relPath, err := filepath.Rel(serverDir, path)
@@ -181,13 +198,38 @@ func (m *Manager) CreateBackup(serverID string, backupName string) (string, erro
 			}
 			defer file.Close()
 			_, err = io.Copy(writer, file)
+			if err != nil {
+				return err
+			}
+
+			processedSize += info.Size()
+			if totalSize > 0 && progressChan != nil {
+				progress := int((float64(processedSize) / float64(totalSize)) * 100)
+				if progress > lastProgress {
+					lastProgress = progress
+					progressChan <- domain.ProgressEvent{
+						Message:  fmt.Sprintf("Backing up... %d%%", progress),
+						Progress: progress,
+					}
+				}
+			}
 		}
 		return err
 	})
 
-	if err != nil {
-		os.Remove(backupFilePath)
-		return "", fmt.Errorf("error al crear el backup: %w", err)
+	zipErr := zipWriter.Close()
+	fileErr := backupFile.Close()
+
+	if err != nil || zipErr != nil || fileErr != nil {
+		os.Remove(tempBackupFilePath)
+		if err != nil {
+			return "", fmt.Errorf("error al crear el backup: %w", err)
+		}
+		return "", fmt.Errorf("error cerrando archivos: %v, %v", zipErr, fileErr)
+	}
+
+	if err := os.Rename(tempBackupFilePath, backupFilePath); err != nil {
+		return "", fmt.Errorf("error al renombrar el archivo temporal: %w", err)
 	}
 
 	return backupFilePath, nil

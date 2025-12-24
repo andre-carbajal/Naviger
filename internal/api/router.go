@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"mc-manager/internal/app"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 type Server struct {
@@ -22,6 +24,9 @@ type Server struct {
 	Store         *storage.GormStore
 	HubManager    *ws.HubManager
 	BackupManager *backup.Manager
+
+	activeBackups   map[string]context.CancelFunc
+	activeBackupsMu sync.Mutex
 }
 
 func NewAPIServer(container *app.Container) *Server {
@@ -31,6 +36,7 @@ func NewAPIServer(container *app.Container) *Server {
 		Store:         container.Store,
 		HubManager:    container.HubManager,
 		BackupManager: container.BackupManager,
+		activeBackups: make(map[string]context.CancelFunc),
 	}
 }
 
@@ -62,6 +68,7 @@ func (api *Server) Start(listenAddr string) error {
 
 	mux.HandleFunc("GET /backups", api.handleListAllBackups)
 	mux.HandleFunc("DELETE /backups/{name}", api.handleDeleteBackup)
+	mux.HandleFunc("DELETE /backups/progress/{id}", api.handleCancelBackup)
 	mux.HandleFunc("POST /backups/{name}/restore", api.handleRestoreBackup)
 
 	mux.HandleFunc("GET /settings/port-range", api.handleGetPortRange)
@@ -343,21 +350,68 @@ func (api *Server) handleBackupServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name string `json:"name,omitempty"`
+		Name      string `json:"name,omitempty"`
+		RequestID string `json:"requestId"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	backupPath, err := api.BackupManager.CreateBackup(id, req.Name)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	progressChan := make(chan domain.ProgressEvent)
+	hubID := req.RequestID
+	if hubID == "" {
+		hubID = "backup-" + id
 	}
+	hub := api.HubManager.GetHub(hubID)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	api.activeBackupsMu.Lock()
+	api.activeBackups[req.RequestID] = cancel
+	api.activeBackupsMu.Unlock()
+
+	go func() {
+		for event := range progressChan {
+			if event.ServerID == "" {
+				event.ServerID = id
+			}
+			jsonBytes, _ := json.Marshal(event)
+			hub.Broadcast(jsonBytes)
+		}
+	}()
+
+	go func() {
+		defer close(progressChan)
+		defer func() {
+			api.activeBackupsMu.Lock()
+			delete(api.activeBackups, req.RequestID)
+			api.activeBackupsMu.Unlock()
+		}()
+
+		_, err := api.BackupManager.CreateBackup(ctx, id, req.Name, progressChan)
+		if err != nil {
+			event := domain.ProgressEvent{
+				ServerID: id,
+				Message:  fmt.Sprintf("Error: %v", err),
+				Progress: -1,
+			}
+			jsonBytes, _ := json.Marshal(event)
+			hub.Broadcast(jsonBytes)
+			return
+		}
+
+		event := domain.ProgressEvent{
+			ServerID: id,
+			Message:  "Backup created successfully",
+			Progress: 100,
+		}
+		jsonBytes, _ := json.Marshal(event)
+		hub.Broadcast(jsonBytes)
+	}()
 
 	response := map[string]string{
-		"message": "Backup creado exitosamente",
-		"path":    backupPath,
+		"status": "creating",
+		"id":     req.RequestID,
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -414,6 +468,28 @@ func (api *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 	}
 	hub := api.HubManager.GetHub(id)
 	hub.ServeWs(w, r)
+}
+
+func (api *Server) handleCancelBackup(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Falta ID", http.StatusBadRequest)
+		return
+	}
+
+	api.activeBackupsMu.Lock()
+	cancel, ok := api.activeBackups[id]
+	if ok {
+		delete(api.activeBackups, id)
+	}
+	api.activeBackupsMu.Unlock()
+
+	if ok {
+		cancel()
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "cancelled"}`))
 }
 
 func (api *Server) corsMiddleware(next http.Handler) http.Handler {

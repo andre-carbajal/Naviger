@@ -13,4 +13,8 @@ export interface Server {
 export interface Backup {
     name: string;
     size: number;
+    status?: 'CREATING' | 'READY' | 'ERROR';
+    progress?: number;
+    requestId?: string;
+    progressMessage?: string;
 }
