@@ -24,9 +24,7 @@ Source: "dist\\web_dist\\*"; DestDir: "{app}\\web_dist"; Flags: ignoreversion re
 Name: "{group}\\Naviger CLI"; Filename: "{app}\\naviger-cli.exe"
 
 [Registry]
-Root: HKLM; Subkey: "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"; \
-    ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; \
-    Check: NeedsAddPath('{app}')
+Root: HKLM; Subkey: "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath('{app}')
 
 [Run]
 Filename: "{app}\\nssm.exe"; Parameters: "install NavigerService \"{app}\\naviger-server.exe\""; Flags: runhidden
@@ -38,7 +36,6 @@ Filename: "{app}\\nssm.exe"; Parameters: "remove NavigerService confirm"; Flags:
 
 [UninstallDelete]
 Type: files; Name: "{app}\\*"; Flags: recursesubdirs
-Type: dir; Name: "{app}\\*"
 Type: dirifempty; Name: "{app}"
 
 [Code]
