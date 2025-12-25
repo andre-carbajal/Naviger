@@ -1,12 +1,12 @@
 package app
 
 import (
-	"mc-manager/internal/backup"
-	"mc-manager/internal/jvm"
-	"mc-manager/internal/runner"
-	"mc-manager/internal/server"
-	"mc-manager/internal/storage"
-	"mc-manager/internal/ws"
+	"naviger/internal/backup"
+	"naviger/internal/jvm"
+	"naviger/internal/runner"
+	"naviger/internal/server"
+	"naviger/internal/storage"
+	"naviger/internal/ws"
 )
 
 type Container struct {

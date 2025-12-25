@@ -16,8 +16,8 @@ cp -r web/dist/* dist/web_dist/
 
 echo "Building Go backend..."
 echo "Building server..."
-go build -v -o dist/mc-manager-server ./cmd/server
+go build -v -o dist/naviger-server ./cmd/server
 echo "Building CLI..."
-go build -v -o dist/mc-cli ./cmd/cli
+go build -v -o dist/naviger-cli ./cmd/cli
 
 echo "Build finished successfully!"

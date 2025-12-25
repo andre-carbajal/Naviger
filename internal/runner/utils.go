@@ -37,7 +37,7 @@ func GetJavaVersionForMC(mcVersion string) int {
 	}
 
 	if first >= 26 {
-		return 21
+		return 25
 	}
 
 	return 21

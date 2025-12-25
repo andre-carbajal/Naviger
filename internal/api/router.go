@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"mc-manager/internal/app"
-	"mc-manager/internal/backup"
-	"mc-manager/internal/domain"
-	"mc-manager/internal/loader"
-	"mc-manager/internal/runner"
-	"mc-manager/internal/server"
-	"mc-manager/internal/storage"
-	"mc-manager/internal/ws"
+	"naviger/internal/app"
+	"naviger/internal/backup"
+	"naviger/internal/domain"
+	"naviger/internal/loader"
+	"naviger/internal/runner"
+	"naviger/internal/server"
+	"naviger/internal/storage"
+	"naviger/internal/ws"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -79,7 +79,7 @@ func (api *Server) Start(listenAddr string) error {
 
 	handler := api.corsMiddleware(mux)
 
-	fmt.Printf("API listening on http://0.0.0.0%s\n", listenAddr)
+	fmt.Printf("API listening on http://localhost%s\n", listenAddr)
 	return http.ListenAndServe(listenAddr, handler)
 }
 

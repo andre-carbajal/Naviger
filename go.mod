@@ -1,4 +1,4 @@
-module mc-manager
+module naviger
 
 go 1.25.4
 

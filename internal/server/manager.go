@@ -2,9 +2,9 @@ package server
 
 import (
 	"fmt"
-	"mc-manager/internal/domain"
-	"mc-manager/internal/loader"
-	"mc-manager/internal/storage"
+	"naviger/internal/domain"
+	"naviger/internal/loader"
+	"naviger/internal/storage"
 	"os"
 	"path/filepath"
 	"time"

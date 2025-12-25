@@ -3,27 +3,27 @@ package main
 import (
 	"fmt"
 	"log"
-	"mc-manager/internal/api"
-	"mc-manager/internal/app"
-	"mc-manager/internal/backup"
-	"mc-manager/internal/config"
-	"mc-manager/internal/jvm"
-	"mc-manager/internal/runner"
-	"mc-manager/internal/server"
-	"mc-manager/internal/storage"
-	"mc-manager/internal/ws"
+	"naviger/internal/api"
+	"naviger/internal/app"
+	"naviger/internal/backup"
+	"naviger/internal/config"
+	"naviger/internal/jvm"
+	"naviger/internal/runner"
+	"naviger/internal/server"
+	"naviger/internal/storage"
+	"naviger/internal/ws"
 	"os"
 	"path/filepath"
 )
 
 func main() {
-	fmt.Println("Starting Minecraft Manager Daemon...")
+	fmt.Println("Starting Naviger Daemon...")
 
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatalf("Error getting user config directory: %v", err)
 	}
-	configDir := filepath.Join(userConfigDir, "mc-manager")
+	configDir := filepath.Join(userConfigDir, "naviger")
 
 	cfg, err := config.LoadConfig(configDir)
 	if err != nil {

@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"mc-manager/internal/storage"
+	"naviger/internal/storage"
 	"net"
 )
 

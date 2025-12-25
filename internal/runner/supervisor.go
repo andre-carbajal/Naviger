@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"mc-manager/internal/jvm"
-	"mc-manager/internal/storage"
-	"mc-manager/internal/ws"
+	"naviger/internal/jvm"
+	"naviger/internal/storage"
+	"naviger/internal/ws"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -213,12 +213,12 @@ func (s *Supervisor) StartServer(serverID string) error {
 
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			_ = exitErr.ExitCode()
-			if uerr := s.Store.UpdateStatus(id, "ERROR"); uerr != nil {
-				fmt.Printf("warning: could not update status to ERROR: %v\n", uerr)
+			if uerr := s.Store.UpdateStatus(id, "STOPPED"); uerr != nil {
+				fmt.Printf("warning: could not update status to STOPPED: %v\n", uerr)
 			}
 		} else {
-			if uerr := s.Store.UpdateStatus(id, "ERROR"); uerr != nil {
-				fmt.Printf("warning: could not update status to ERROR: %v\n", uerr)
+			if uerr := s.Store.UpdateStatus(id, "STOPPED"); uerr != nil {
+				fmt.Printf("warning: could not update status to STOPPED: %v\n", uerr)
 			}
 		}
 

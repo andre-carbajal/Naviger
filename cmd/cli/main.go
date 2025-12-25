@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"mc-manager/internal/config"
-	"mc-manager/internal/domain"
+	"naviger/internal/config"
+	"naviger/internal/domain"
 	"net/http"
 	"net/url"
 	"os"
@@ -72,7 +72,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error getting user config directory: %v", err)
 	}
-	configDir := filepath.Join(userConfigDir, "mc-manager")
+	configDir := filepath.Join(userConfigDir, "naviger")
 
 	_, err = config.LoadConfig(configDir)
 	if err != nil {
@@ -117,7 +117,7 @@ func main() {
 	switch command {
 	case "server":
 		if len(cmdArgs) < 1 {
-			fmt.Println("Usage: mc-cli server <subcommand>")
+			fmt.Println("Usage: naviger-cli server <subcommand>")
 			fmt.Println("Subcommands: create, list, start, stop, delete, logs")
 			os.Exit(1)
 		}
@@ -136,7 +136,7 @@ func main() {
 		case "start":
 			parseFlags(serverStartCmd, subArgs, "server start")
 			if serverStartCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the server ID. Ex: mc-cli server start <UUID>")
+				log.Fatal("Error: You must specify the server ID. Ex: naviger-cli server start <UUID>")
 			}
 			handleStart(serverStartCmd.Arg(0))
 
@@ -157,7 +157,7 @@ func main() {
 		case "logs":
 			parseFlags(logsCmd, subArgs, "server logs")
 			if logsCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the server ID. Ex: mc-cli server logs <UUID>")
+				log.Fatal("Error: You must specify the server ID. Ex: naviger-cli server logs <UUID>")
 			}
 			handleLogs(logsCmd.Arg(0))
 
@@ -168,7 +168,7 @@ func main() {
 
 	case "backup":
 		if len(cmdArgs) < 1 {
-			fmt.Println("Usage: mc-cli backup <subcommand>")
+			fmt.Println("Usage: naviger-cli backup <subcommand>")
 			fmt.Println("Subcommands: create, list, delete, restore")
 			os.Exit(1)
 		}
@@ -179,7 +179,7 @@ func main() {
 		case "create":
 			parseFlags(backupCreateCmd, subArgs, "backup create")
 			if backupCreateCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the server ID. Ex: mc-cli backup create <UUID> [optional-name]")
+				log.Fatal("Error: You must specify the server ID. Ex: naviger-cli backup create <UUID> [optional-name]")
 			}
 			serverID := backupCreateCmd.Arg(0)
 			backupName := ""
@@ -213,14 +213,14 @@ func main() {
 
 		default:
 			fmt.Println("Unknown subcommand for 'backup':", sub)
-			fmt.Println("Usage: mc-cli backup <subcommand>")
+			fmt.Println("Usage: naviger-cli backup <subcommand>")
 			fmt.Println("Subcommands: create, list, delete, restore")
 			os.Exit(1)
 		}
 
 	case "ports":
 		if len(cmdArgs) < 1 {
-			fmt.Println("Usage: mc-cli ports <subcommand>")
+			fmt.Println("Usage: naviger-cli ports <subcommand>")
 			fmt.Println("Subcommands: get, set")
 			os.Exit(1)
 		}
@@ -241,7 +241,7 @@ func main() {
 
 		default:
 			fmt.Println("Unknown subcommand for 'ports':", sub)
-			fmt.Println("Usage: mc-cli ports <subcommand>")
+			fmt.Println("Usage: naviger-cli ports <subcommand>")
 			fmt.Println("Subcommands: get, set")
 			os.Exit(1)
 		}
@@ -508,7 +508,7 @@ func handleCreate(name, version, loader string, ram int) {
 	if name == "" || version == "" || loader == "" || ram == 0 {
 		log.Println("Error: Missing arguments to create server.")
 		fmt.Println("\nCorrect usage:")
-		fmt.Println("  mc-cli server create --name \"My Server\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048")
+		fmt.Println("  naviger-cli server create --name \"My Server\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048")
 		os.Exit(1)
 	}
 

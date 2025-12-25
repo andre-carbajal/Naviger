@@ -3,7 +3,7 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"mc-manager/internal/domain"
+	"naviger/internal/domain"
 	"strconv"
 	"time"
 

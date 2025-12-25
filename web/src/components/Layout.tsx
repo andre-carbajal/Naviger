@@ -9,7 +9,7 @@ const Layout: React.FC = () => {
             <aside className="sidebar">
                 <div className="brand">
                     <Terminal size={24}/>
-                    <span>MC Manager</span>
+                    <span>Naviger</span>
                 </div>
                 <nav>
                     <NavLink to="/" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
