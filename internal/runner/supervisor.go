@@ -45,7 +45,7 @@ func (s *Supervisor) StartServer(serverID string) error {
 	defer s.mu.Unlock()
 
 	if _, exists := s.processes[serverID]; exists {
-		return fmt.Errorf("el servidor ya está corriendo")
+		return fmt.Errorf("server is already running")
 	}
 
 	srv, err := s.Store.GetServerByID(serverID)
@@ -53,24 +53,24 @@ func (s *Supervisor) StartServer(serverID string) error {
 		return err
 	}
 	if srv == nil {
-		return fmt.Errorf("servidor no encontrado")
+		return fmt.Errorf("server not found")
 	}
 
 	serverDir := filepath.Join(s.ServersPath, srv.ID)
 	absServerDir, err := filepath.Abs(serverDir)
 	if err != nil {
-		return fmt.Errorf("error obteniendo ruta absoluta del server: %w", err)
+		return fmt.Errorf("error getting absolute path for server: %w", err)
 	}
 
 	configFile := filepath.Join(absServerDir, "server.properties")
 	if err := ensurePortInProperties(configFile, srv.Port); err != nil {
-		fmt.Printf("⚠Advertencia: No se pudo actualizar server.properties: %v\n", err)
+		fmt.Printf("⚠Warning: Could not update server.properties: %v\n", err)
 	}
 
 	requiredJava := GetJavaVersionForMC(srv.Version)
 	javaPath, err := s.JVM.EnsureJava(requiredJava)
 	if err != nil {
-		return fmt.Errorf("error preparando Java: %w", err)
+		return fmt.Errorf("error preparing Java: %w", err)
 	}
 
 	var cmd *exec.Cmd
@@ -85,7 +85,7 @@ func (s *Supervisor) StartServer(serverID string) error {
 		}
 
 		if _, err := os.Stat(librariesDir); os.IsNotExist(err) {
-			return fmt.Errorf("directorio libraries no encontrado en %s (necesario para Forge/NeoForge)", librariesDir)
+			return fmt.Errorf("libraries directory not found in %s (required for Forge/NeoForge)", librariesDir)
 		}
 
 		err := filepath.WalkDir(librariesDir, func(path string, d fs.DirEntry, err error) error {
@@ -101,7 +101,7 @@ func (s *Supervisor) StartServer(serverID string) error {
 
 		if argsFile == "" {
 			if err != io.EOF {
-				return fmt.Errorf("no se encontró el archivo de argumentos %s en libraries", targetFile)
+				return fmt.Errorf("args file %s not found in libraries", targetFile)
 			}
 		}
 
@@ -124,9 +124,9 @@ func (s *Supervisor) StartServer(serverID string) error {
 		jarFull := filepath.Join(absServerDir, jarPath)
 		if _, err := os.Stat(jarFull); err != nil {
 			if os.IsNotExist(err) {
-				return fmt.Errorf("server jar no encontrado en %s", jarFull)
+				return fmt.Errorf("server jar not found at %s", jarFull)
 			}
-			return fmt.Errorf("error accediendo a %s: %w", jarFull, err)
+			return fmt.Errorf("error accessing %s: %w", jarFull, err)
 		}
 
 		args = []string{
@@ -183,11 +183,11 @@ func (s *Supervisor) StartServer(serverID string) error {
 	}()
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("falló el arranque: %w", err)
+		return fmt.Errorf("failed to start: %w", err)
 	}
 
 	if err := s.Store.UpdateStatus(serverID, "RUNNING"); err != nil {
-		fmt.Printf("advertencia: no se pudo actualizar el estado a RUNNING: %v\n", err)
+		fmt.Printf("warning: could not update status to RUNNING: %v\n", err)
 	}
 
 	s.processes[serverID] = &ActiveProcess{
@@ -206,7 +206,7 @@ func (s *Supervisor) StartServer(serverID string) error {
 
 		if err == nil {
 			if uerr := s.Store.UpdateStatus(id, "STOPPED"); uerr != nil {
-				fmt.Printf("advertencia: no se pudo actualizar el estado a STOPPED: %v\n", uerr)
+				fmt.Printf("warning: could not update status to STOPPED: %v\n", uerr)
 			}
 			return
 		}
@@ -214,11 +214,11 @@ func (s *Supervisor) StartServer(serverID string) error {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			_ = exitErr.ExitCode()
 			if uerr := s.Store.UpdateStatus(id, "ERROR"); uerr != nil {
-				fmt.Printf("advertencia: no se pudo actualizar el estado a ERROR: %v\n", uerr)
+				fmt.Printf("warning: could not update status to ERROR: %v\n", uerr)
 			}
 		} else {
 			if uerr := s.Store.UpdateStatus(id, "ERROR"); uerr != nil {
-				fmt.Printf("advertencia: no se pudo actualizar el estado a ERROR: %v\n", uerr)
+				fmt.Printf("warning: could not update status to ERROR: %v\n", uerr)
 			}
 		}
 
@@ -233,11 +233,11 @@ func (s *Supervisor) StopServer(serverID string) error {
 	s.mu.Unlock()
 
 	if !exists {
-		return fmt.Errorf("servidor no está corriendo")
+		return fmt.Errorf("server is not running")
 	}
 
 	if err := s.Store.UpdateStatus(serverID, "STOPPING"); err != nil {
-		fmt.Printf("advertencia: no se pudo actualizar el estado a STOPPING: %v\n", err)
+		fmt.Printf("warning: could not update status to STOPPING: %v\n", err)
 	}
 	_, err := io.WriteString(proc.Stdin, "stop\n")
 	return err
@@ -249,7 +249,7 @@ func (s *Supervisor) SendCommand(serverID string, cmd string) error {
 	s.mu.Unlock()
 
 	if !exists {
-		return fmt.Errorf("servidor no está corriendo")
+		return fmt.Errorf("server is not running")
 	}
 
 	_, err := io.WriteString(proc.Stdin, cmd+"\n")

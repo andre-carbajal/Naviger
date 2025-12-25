@@ -50,7 +50,7 @@ func (m *Manager) DeleteBackup(name string) error {
 func (m *Manager) ListAllBackups() ([]BackupInfo, error) {
 	files, err := os.ReadDir(m.BackupsPath)
 	if err != nil {
-		return nil, fmt.Errorf("no se pudo leer el directorio de backups: %w", err)
+		return nil, fmt.Errorf("could not read backups directory: %w", err)
 	}
 
 	var backups []BackupInfo
@@ -75,17 +75,17 @@ func (m *Manager) ListAllBackups() ([]BackupInfo, error) {
 func (m *Manager) ListBackups(serverID string) ([]BackupInfo, error) {
 	srv, err := m.Store.GetServerByID(serverID)
 	if err != nil {
-		return nil, fmt.Errorf("no se pudo obtener la información del servidor: %w", err)
+		return nil, fmt.Errorf("could not get server info: %w", err)
 	}
 	if srv == nil {
-		return nil, fmt.Errorf("servidor con ID '%s' no encontrado en la base de datos", serverID)
+		return nil, fmt.Errorf("server with ID '%s' not found in database", serverID)
 	}
 
 	safeName := sanitizeFileName(srv.Name)
 
 	files, err := os.ReadDir(m.BackupsPath)
 	if err != nil {
-		return nil, fmt.Errorf("no se pudo leer el directorio de backups: %w", err)
+		return nil, fmt.Errorf("could not read backups directory: %w", err)
 	}
 
 	var backups []BackupInfo
@@ -112,16 +112,16 @@ func (m *Manager) ListBackups(serverID string) ([]BackupInfo, error) {
 func (m *Manager) CreateBackup(ctx context.Context, serverID string, backupName string, progressChan chan<- domain.ProgressEvent) (string, error) {
 	serverDir := filepath.Join(m.ServersPath, serverID)
 	if _, err := os.Stat(serverDir); os.IsNotExist(err) {
-		return "", fmt.Errorf("el directorio del servidor con ID '%s' no existe", serverID)
+		return "", fmt.Errorf("server directory with ID '%s' does not exist", serverID)
 	}
 
 	if backupName == "" {
 		srv, err := m.Store.GetServerByID(serverID)
 		if err != nil {
-			return "", fmt.Errorf("no se pudo obtener la información del servidor: %w", err)
+			return "", fmt.Errorf("could not get server info: %w", err)
 		}
 		if srv == nil {
-			return "", fmt.Errorf("servidor con ID '%s' no encontrado en la base de datos", serverID)
+			return "", fmt.Errorf("server with ID '%s' not found in database", serverID)
 		}
 		backupName = srv.Name
 	}
@@ -133,7 +133,7 @@ func (m *Manager) CreateBackup(ctx context.Context, serverID string, backupName 
 	tempBackupFilePath := backupFilePath + ".temp"
 
 	if err := os.MkdirAll(m.BackupsPath, 0755); err != nil {
-		return "", fmt.Errorf("no se pudo crear el directorio de backups: %w", err)
+		return "", fmt.Errorf("could not create backups directory: %w", err)
 	}
 
 	var totalSize int64
@@ -146,7 +146,7 @@ func (m *Manager) CreateBackup(ctx context.Context, serverID string, backupName 
 
 	backupFile, err := os.Create(tempBackupFilePath)
 	if err != nil {
-		return "", fmt.Errorf("no se pudo crear el archivo de backup: %w", err)
+		return "", fmt.Errorf("could not create backup file: %w", err)
 	}
 
 	zipWriter := zip.NewWriter(backupFile)
@@ -223,13 +223,13 @@ func (m *Manager) CreateBackup(ctx context.Context, serverID string, backupName 
 	if err != nil || zipErr != nil || fileErr != nil {
 		os.Remove(tempBackupFilePath)
 		if err != nil {
-			return "", fmt.Errorf("error al crear el backup: %w", err)
+			return "", fmt.Errorf("error creating backup: %w", err)
 		}
-		return "", fmt.Errorf("error cerrando archivos: %v, %v", zipErr, fileErr)
+		return "", fmt.Errorf("error closing files: %v, %v", zipErr, fileErr)
 	}
 
 	if err := os.Rename(tempBackupFilePath, backupFilePath); err != nil {
-		return "", fmt.Errorf("error al renombrar el archivo temporal: %w", err)
+		return "", fmt.Errorf("error renaming temp file: %w", err)
 	}
 
 	return backupFilePath, nil

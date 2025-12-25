@@ -37,7 +37,7 @@ func NewVanillaLoader() *VanillaLoader {
 func (l *VanillaLoader) GetSupportedVersions() ([]string, error) {
 	manifest, err := l.fetchManifest()
 	if err != nil {
-		return nil, fmt.Errorf("no se pudo obtener el manifiesto de versiones: %w", err)
+		return nil, fmt.Errorf("could not get version manifest: %w", err)
 	}
 
 	var versions []string
@@ -50,9 +50,9 @@ func (l *VanillaLoader) GetSupportedVersions() ([]string, error) {
 
 func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Buscando versión %s...", versionID)
+		progressChan <- fmt.Sprintf("Searching for version %s...", versionID)
 	}
-	fmt.Printf("[Vanilla Loader] Buscando versión %s...\n", versionID)
+	fmt.Printf("[Vanilla Loader] Searching for version %s...\n", versionID)
 
 	manifest, err := l.fetchManifest()
 	if err != nil {
@@ -67,11 +67,11 @@ func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan
 		}
 	}
 	if versionURL == "" {
-		return fmt.Errorf("versión %s no encontrada en Mojang", versionID)
+		return fmt.Errorf("version %s not found in Mojang", versionID)
 	}
 
 	if progressChan != nil {
-		progressChan <- "Obteniendo detalles de la versión..."
+		progressChan <- "Getting version details..."
 	}
 	details, err := l.fetchVersionDetails(versionURL)
 	if err != nil {
@@ -80,9 +80,9 @@ func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan
 
 	finalPath := filepath.Join(destDir, "server.jar")
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Descargando server.jar desde: %s", details.Downloads.Server.URL)
+		progressChan <- fmt.Sprintf("Downloading server.jar from: %s", details.Downloads.Server.URL)
 	}
-	fmt.Printf("Descargando server.jar desde: %s\n", details.Downloads.Server.URL)
+	fmt.Printf("Downloading server.jar from: %s\n", details.Downloads.Server.URL)
 
 	err = l.downloadFile(details.Downloads.Server.URL, finalPath)
 	if err != nil {
@@ -90,9 +90,9 @@ func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan
 	}
 
 	if progressChan != nil {
-		progressChan <- "Instalación completada."
+		progressChan <- "Installation completed."
 	}
-	fmt.Println("Instalación completada. El servidor está iniciando.")
+	fmt.Println("Installation completed. The server is starting.")
 	return nil
 }
 

@@ -24,34 +24,34 @@ var BaseURL string
 
 func printHelp() {
 	prog := filepath.Base(os.Args[0])
-	fmt.Printf("Uso: %s <recurso> <acción> [flags]\n\n", prog)
-	fmt.Println("Recursos y acciones:")
-	fmt.Printf("  %-60s %s\n", "server create --name <nombre> --version <versión> --loader <loader> --ram <MB>", "Crear nuevo servidor")
-	fmt.Printf("  %-60s %s\n", "server list", "Listar servidores")
-	fmt.Printf("  %-60s %s\n", "server start <id>", "Iniciar servidor")
-	fmt.Printf("  %-60s %s\n", "server stop <id>", "Detener servidor")
-	fmt.Printf("  %-60s %s\n", "server delete <id>", "Eliminar servidor")
-	fmt.Printf("  %-60s %s\n", "server logs <id>", "Ver consola del servidor y enviar comandos")
+	fmt.Printf("Usage: %s <resource> <action> [flags]\n\n", prog)
+	fmt.Println("Resources and actions:")
+	fmt.Printf("  %-60s %s\n", "server create --name <name> --version <version> --loader <loader> --ram <MB>", "Create new server")
+	fmt.Printf("  %-60s %s\n", "server list", "List servers")
+	fmt.Printf("  %-60s %s\n", "server start <id>", "Start server")
+	fmt.Printf("  %-60s %s\n", "server stop <id>", "Stop server")
+	fmt.Printf("  %-60s %s\n", "server delete <id>", "Delete server")
+	fmt.Printf("  %-60s %s\n", "server logs <id>", "View server console and send commands")
 	fmt.Println()
-	fmt.Printf("  %-60s %s\n", "backup create <id> [nombre]", "Crear backup de servidor")
-	fmt.Printf("  %-60s %s\n", "backup list [id]", "Listar backups (todos o por servidor)")
-	fmt.Printf("  %-60s %s\n", "backup delete <nombre>", "Eliminar backup")
-	fmt.Printf("  %-60s %s\n", "backup restore <nombre> --target <id>", "Restaurar backup en servidor existente")
-	fmt.Printf("  %-60s %s\n", "backup restore <nombre> --new --name <nombre> --version <ver> --loader <loader> --ram <MB>", "Restaurar backup en servidor nuevo")
+	fmt.Printf("  %-60s %s\n", "backup create <id> [name]", "Create server backup")
+	fmt.Printf("  %-60s %s\n", "backup list [id]", "List backups (all or by server)")
+	fmt.Printf("  %-60s %s\n", "backup delete <name>", "Delete backup")
+	fmt.Printf("  %-60s %s\n", "backup restore <name> --target <id>", "Restore backup to existing server")
+	fmt.Printf("  %-60s %s\n", "backup restore <name> --new --name <name> --version <ver> --loader <loader> --ram <MB>", "Restore backup to new server")
 	fmt.Println()
-	fmt.Printf("  %-60s %s\n", "ports get", "Mostrar rango de puertos")
-	fmt.Printf("  %-60s %s\n", "ports set --start <n> --end <m>", "Establecer rango de puertos")
+	fmt.Printf("  %-60s %s\n", "ports get", "Show port range")
+	fmt.Printf("  %-60s %s\n", "ports set --start <n> --end <m>", "Set port range")
 	fmt.Println()
-	fmt.Printf("  %-60s %s\n", "loaders", "Muestra los loaders de servidores disponibles")
-	fmt.Printf("  %-60s %s\n", "help", "Muestra este mensaje de ayuda")
+	fmt.Printf("  %-60s %s\n", "loaders", "Show available server loaders")
+	fmt.Printf("  %-60s %s\n", "help", "Show this help message")
 	fmt.Println()
-	fmt.Println("Ejemplo:")
-	fmt.Printf("  %s server create --name \"Mi Servidor\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048\n", prog)
+	fmt.Println("Example:")
+	fmt.Printf("  %s server create --name \"My Server\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048\n", prog)
 }
 
 func parseFlags(fs *flag.FlagSet, args []string, ctx string) {
 	if err := fs.Parse(args); err != nil {
-		log.Fatalf("Error parseando flags para %s: %v", ctx, err)
+		log.Fatalf("Error parsing flags for %s: %v", ctx, err)
 	}
 }
 
@@ -70,13 +70,13 @@ func main() {
 
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatalf("Error al obtener el directorio de configuración del usuario: %v", err)
+		log.Fatalf("Error getting user config directory: %v", err)
 	}
 	configDir := filepath.Join(userConfigDir, "mc-manager")
 
 	_, err = config.LoadConfig(configDir)
 	if err != nil {
-		log.Fatalf("Error al cargar la configuración: %v", err)
+		log.Fatalf("Error loading configuration: %v", err)
 	}
 
 	serverCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
@@ -85,27 +85,27 @@ func main() {
 	serverStopCmd := flag.NewFlagSet("stop", flag.ExitOnError)
 	serverDeleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
 
-	serverCreateName := serverCreateCmd.String("name", "", "Nombre del servidor")
-	serverCreateVer := serverCreateCmd.String("version", "", "Versión de Minecraft")
+	serverCreateName := serverCreateCmd.String("name", "", "Server name")
+	serverCreateVer := serverCreateCmd.String("version", "", "Minecraft version")
 	serverCreateLoader := serverCreateCmd.String("loader", "", "Loader (vanilla, paper, etc.)")
-	serverCreateRam := serverCreateCmd.Int("ram", 0, "RAM en MB")
+	serverCreateRam := serverCreateCmd.Int("ram", 0, "RAM in MB")
 
 	backupCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
 	backupListCmd := flag.NewFlagSet("list", flag.ExitOnError)
 	backupDeleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
 	backupRestoreCmd := flag.NewFlagSet("restore", flag.ExitOnError)
 
-	backupRestoreTarget := backupRestoreCmd.String("target", "", "ID del servidor destino (para restaurar en existente)")
-	backupRestoreNew := backupRestoreCmd.Bool("new", false, "Crear nuevo servidor desde backup")
-	backupRestoreName := backupRestoreCmd.String("name", "", "Nombre del nuevo servidor")
-	backupRestoreVer := backupRestoreCmd.String("version", "1.20.1", "Versión del nuevo servidor")
-	backupRestoreLoader := backupRestoreCmd.String("loader", "vanilla", "Loader del nuevo servidor")
-	backupRestoreRam := backupRestoreCmd.Int("ram", 2048, "RAM del nuevo servidor")
+	backupRestoreTarget := backupRestoreCmd.String("target", "", "Target server ID (to restore to existing)")
+	backupRestoreNew := backupRestoreCmd.Bool("new", false, "Create new server from backup")
+	backupRestoreName := backupRestoreCmd.String("name", "", "New server name")
+	backupRestoreVer := backupRestoreCmd.String("version", "1.20.1", "New server version")
+	backupRestoreLoader := backupRestoreCmd.String("loader", "vanilla", "New server loader")
+	backupRestoreRam := backupRestoreCmd.Int("ram", 2048, "New server RAM")
 
 	portsGetCmd := flag.NewFlagSet("get", flag.ExitOnError)
 	portsSetCmd := flag.NewFlagSet("set", flag.ExitOnError)
-	portsSetStart := portsSetCmd.Int("start", 0, "Puerto inicial")
-	portsSetEnd := portsSetCmd.Int("end", 0, "Puerto final")
+	portsSetStart := portsSetCmd.Int("start", 0, "Start port")
+	portsSetEnd := portsSetCmd.Int("end", 0, "End port")
 
 	loadersCmd := flag.NewFlagSet("loaders", flag.ExitOnError)
 	logsCmd := flag.NewFlagSet("logs", flag.ExitOnError)
@@ -117,8 +117,8 @@ func main() {
 	switch command {
 	case "server":
 		if len(cmdArgs) < 1 {
-			fmt.Println("Uso: mc-cli server <subcomando>")
-			fmt.Println("Subcomandos: create, list, start, stop, delete, logs")
+			fmt.Println("Usage: mc-cli server <subcommand>")
+			fmt.Println("Subcommands: create, list, start, stop, delete, logs")
 			os.Exit(1)
 		}
 		sub := cmdArgs[0]
@@ -136,40 +136,40 @@ func main() {
 		case "start":
 			parseFlags(serverStartCmd, subArgs, "server start")
 			if serverStartCmd.NArg() < 1 {
-				log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli server start <UUID>")
+				log.Fatal("Error: You must specify the server ID. Ex: mc-cli server start <UUID>")
 			}
 			handleStart(serverStartCmd.Arg(0))
 
 		case "stop":
 			parseFlags(serverStopCmd, subArgs, "server stop")
 			if serverStopCmd.NArg() < 1 {
-				log.Fatal("Error: Debes especificar el ID del servidor.")
+				log.Fatal("Error: You must specify the server ID.")
 			}
 			handleStop(serverStopCmd.Arg(0))
 
 		case "delete":
 			parseFlags(serverDeleteCmd, subArgs, "server delete")
 			if serverDeleteCmd.NArg() < 1 {
-				log.Fatal("Error: Debes especificar el ID del servidor.")
+				log.Fatal("Error: You must specify the server ID.")
 			}
 			handleDelete(serverDeleteCmd.Arg(0))
 
 		case "logs":
 			parseFlags(logsCmd, subArgs, "server logs")
 			if logsCmd.NArg() < 1 {
-				log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli server logs <UUID>")
+				log.Fatal("Error: You must specify the server ID. Ex: mc-cli server logs <UUID>")
 			}
 			handleLogs(logsCmd.Arg(0))
 
 		default:
-			fmt.Println("Subcomando desconocido para 'server':", sub)
+			fmt.Println("Unknown subcommand for 'server':", sub)
 			os.Exit(1)
 		}
 
 	case "backup":
 		if len(cmdArgs) < 1 {
-			fmt.Println("Uso: mc-cli backup <subcomando>")
-			fmt.Println("Subcomandos: create, list, delete, restore")
+			fmt.Println("Usage: mc-cli backup <subcommand>")
+			fmt.Println("Subcommands: create, list, delete, restore")
 			os.Exit(1)
 		}
 		sub := cmdArgs[0]
@@ -179,7 +179,7 @@ func main() {
 		case "create":
 			parseFlags(backupCreateCmd, subArgs, "backup create")
 			if backupCreateCmd.NArg() < 1 {
-				log.Fatal("Error: Debes especificar el ID del servidor. Ej: mc-cli backup create <UUID> [nombre-opcional]")
+				log.Fatal("Error: You must specify the server ID. Ex: mc-cli backup create <UUID> [optional-name]")
 			}
 			serverID := backupCreateCmd.Arg(0)
 			backupName := ""
@@ -199,29 +199,29 @@ func main() {
 		case "delete":
 			parseFlags(backupDeleteCmd, subArgs, "backup delete")
 			if backupDeleteCmd.NArg() < 1 {
-				log.Fatal("Error: Debes especificar el nombre del backup.")
+				log.Fatal("Error: You must specify the backup name.")
 			}
 			handleDeleteBackup(backupDeleteCmd.Arg(0))
 
 		case "restore":
 			parseFlags(backupRestoreCmd, subArgs, "backup restore")
 			if backupRestoreCmd.NArg() < 1 {
-				log.Fatal("Error: Debes especificar el nombre del backup.")
+				log.Fatal("Error: You must specify the backup name.")
 			}
 			backupName := backupRestoreCmd.Arg(0)
 			handleRestoreBackup(backupName, *backupRestoreTarget, *backupRestoreNew, *backupRestoreName, *backupRestoreVer, *backupRestoreLoader, *backupRestoreRam)
 
 		default:
-			fmt.Println("Subcomando desconocido para 'backup':", sub)
-			fmt.Println("Uso: mc-cli backup <subcomando>")
-			fmt.Println("Subcomandos: create, list, delete, restore")
+			fmt.Println("Unknown subcommand for 'backup':", sub)
+			fmt.Println("Usage: mc-cli backup <subcommand>")
+			fmt.Println("Subcommands: create, list, delete, restore")
 			os.Exit(1)
 		}
 
 	case "ports":
 		if len(cmdArgs) < 1 {
-			fmt.Println("Uso: mc-cli ports <subcomando>")
-			fmt.Println("Subcomandos: get, set")
+			fmt.Println("Usage: mc-cli ports <subcommand>")
+			fmt.Println("Subcommands: get, set")
 			os.Exit(1)
 		}
 		sub := cmdArgs[0]
@@ -235,14 +235,14 @@ func main() {
 		case "set":
 			parseFlags(portsSetCmd, subArgs, "ports set")
 			if *portsSetStart == 0 || *portsSetEnd == 0 {
-				log.Fatal("Error: Debes especificar ambos flags --start y --end para actualizar el rango de puertos")
+				log.Fatal("Error: You must specify both --start and --end flags to update the port range")
 			}
 			handleSetPortRange(*portsSetStart, *portsSetEnd)
 
 		default:
-			fmt.Println("Subcomando desconocido para 'ports':", sub)
-			fmt.Println("Uso: mc-cli ports <subcomando>")
-			fmt.Println("Subcomandos: get, set")
+			fmt.Println("Unknown subcommand for 'ports':", sub)
+			fmt.Println("Usage: mc-cli ports <subcommand>")
+			fmt.Println("Subcommands: get, set")
 			os.Exit(1)
 		}
 
@@ -255,7 +255,7 @@ func main() {
 		printHelp()
 
 	default:
-		fmt.Println("Comando desconocido:", command)
+		fmt.Println("Unknown command:", command)
 		printHelp()
 		os.Exit(1)
 	}
@@ -264,20 +264,20 @@ func main() {
 func handleListLoaders() {
 	resp, err := http.Get(BaseURL + "/loaders")
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v\n(¿Está corriendo el servidor en otra terminal?)", err)
+		log.Fatalf("Error connecting to Daemon: %v\n(Is the server running in another terminal?)", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		log.Fatalf("Error del servidor: %s", resp.Status)
+		log.Fatalf("Server error: %s", resp.Status)
 	}
 
 	var loaders []string
 	if err := json.NewDecoder(resp.Body).Decode(&loaders); err != nil {
-		log.Fatalf("Error leyendo respuesta: %v", err)
+		log.Fatalf("Error reading response: %v", err)
 	}
 
-	fmt.Println("\n--- LOADERS DISPONIBLES ---")
+	fmt.Println("\n--- AVAILABLE LOADERS ---")
 	for _, l := range loaders {
 		fmt.Printf("- %s\n", l)
 	}
@@ -287,44 +287,44 @@ func handleDelete(id string) {
 	reqURL := fmt.Sprintf("%s/servers/%s", BaseURL, id)
 	req, err := http.NewRequest(http.MethodDelete, reqURL, nil)
 	if err != nil {
-		log.Fatalf("Error creando petición: %v", err)
+		log.Fatalf("Error creating request: %v", err)
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Error eliminando servidor: %s", string(body))
+		log.Fatalf("Error deleting server: %s", string(body))
 	}
 
-	fmt.Println("Servidor eliminado exitosamente.")
+	fmt.Println("Server deleted successfully.")
 }
 
 func handleDeleteBackup(name string) {
 	reqURL := fmt.Sprintf("%s/backups/%s", BaseURL, name)
 	req, err := http.NewRequest(http.MethodDelete, reqURL, nil)
 	if err != nil {
-		log.Fatalf("Error creando petición: %v", err)
+		log.Fatalf("Error creating request: %v", err)
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Error eliminando backup: %s", string(body))
+		log.Fatalf("Error deleting backup: %s", string(body))
 	}
 
-	fmt.Println("Backup eliminado exitosamente.")
+	fmt.Println("Backup deleted successfully.")
 }
 
 func handleRestoreBackup(backupName, targetID string, isNew bool, newName, newVer, newLoader string, newRam int) {
@@ -334,7 +334,7 @@ func handleRestoreBackup(backupName, targetID string, isNew bool, newName, newVe
 
 	if isNew {
 		if newName == "" {
-			log.Fatal("Error: Debes especificar --name para el nuevo servidor")
+			log.Fatal("Error: You must specify --name for the new server")
 		}
 		payload["newServerName"] = newName
 		payload["newServerVersion"] = newVer
@@ -342,7 +342,7 @@ func handleRestoreBackup(backupName, targetID string, isNew bool, newName, newVe
 		payload["newServerRam"] = newRam
 	} else {
 		if targetID == "" {
-			log.Fatal("Error: Debes especificar --target <ID> o usar --new")
+			log.Fatal("Error: You must specify --target <ID> or use --new")
 		}
 		payload["targetServerId"] = targetID
 	}
@@ -351,37 +351,37 @@ func handleRestoreBackup(backupName, targetID string, isNew bool, newName, newVe
 
 	resp, err := http.Post(reqURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Error restaurando backup: %s", string(body))
+		log.Fatalf("Error restoring backup: %s", string(body))
 	}
 
-	fmt.Println("Backup restaurado exitosamente.")
+	fmt.Println("Backup restored successfully.")
 }
 
 func handleListAllBackups() {
 	reqURL := fmt.Sprintf("%s/backups", BaseURL)
 	resp, err := http.Get(reqURL)
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Error del servidor: %s", string(body))
+		log.Fatalf("Server error: %s", string(body))
 	}
 
 	var backups []domain.BackupInfo
 	if err := json.NewDecoder(resp.Body).Decode(&backups); err != nil {
-		log.Fatalf("Error leyendo respuesta: %v", err)
+		log.Fatalf("Error reading response: %v", err)
 	}
 
-	fmt.Println("\n--- TODOS LOS BACKUPS ---")
+	fmt.Println("\n--- ALL BACKUPS ---")
 	for _, b := range backups {
 		fmt.Printf("- %s (%.2f MB)\n", b.Name, float64(b.Size)/1024/1024)
 	}
@@ -391,21 +391,21 @@ func handleListBackups(id string) {
 	reqURL := fmt.Sprintf("%s/servers/%s/backups", BaseURL, id)
 	resp, err := http.Get(reqURL)
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Error del servidor: %s", string(body))
+		log.Fatalf("Server error: %s", string(body))
 	}
 
 	var backups []domain.BackupInfo
 	if err := json.NewDecoder(resp.Body).Decode(&backups); err != nil {
-		log.Fatalf("Error leyendo respuesta: %v", err)
+		log.Fatalf("Error reading response: %v", err)
 	}
 
-	fmt.Printf("\n--- BACKUPS PARA SERVIDOR %s ---\n", id)
+	fmt.Printf("\n--- BACKUPS FOR SERVER %s ---\n", id)
 	for _, b := range backups {
 		fmt.Printf("- %s (%.2f MB)\n", b.Name, float64(b.Size)/1024/1024)
 	}
@@ -417,15 +417,15 @@ func handleLogs(id string) {
 
 	u, err := url.Parse(BaseURL)
 	if err != nil {
-		log.Fatal("Error parseando URL base:", err)
+		log.Fatal("Error parsing base URL:", err)
 	}
 	u.Scheme = "ws"
 	wsURL := fmt.Sprintf("%s/ws/servers/%s/console", u.String(), id)
 
-	fmt.Printf("Conectando a la consola de %s...\n", id)
+	fmt.Printf("Connecting to console of %s...\n", id)
 	c, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
-		log.Fatalf("Error al conectar al WebSocket. ¿Está el servidor corriendo? Error: %v", err)
+		log.Fatalf("Error connecting to WebSocket. Is the server running? Error: %v", err)
 	}
 	defer c.Close()
 
@@ -437,9 +437,9 @@ func handleLogs(id string) {
 			_, message, err := c.ReadMessage()
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					fmt.Printf("Error inesperado leyendo mensaje: %v", err)
+					fmt.Printf("Unexpected error reading message: %v", err)
 				}
-				fmt.Println("\nDesconectado de la consola.")
+				fmt.Println("\nDisconnected from console.")
 				return
 			}
 			fmt.Println(string(message))
@@ -457,17 +457,17 @@ func handleLogs(id string) {
 		}
 	}()
 
-	fmt.Println("Conectado. Escribe comandos y presiona Enter. Presiona Ctrl+C para salir.")
+	fmt.Println("Connected. Type commands and press Enter. Press Ctrl+C to exit.")
 
 	for {
 		select {
 		case <-done:
 			return
 		case <-interrupt:
-			log.Println("Interrupción recibida, cerrando conexión...")
+			log.Println("Interrupt received, closing connection...")
 			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				log.Println("Error enviando mensaje de cierre:", err)
+				log.Println("Error sending close message:", err)
 			}
 			return
 		}
@@ -477,20 +477,20 @@ func handleLogs(id string) {
 func handleList() {
 	resp, err := http.Get(BaseURL + "/servers")
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v\n(¿Está corriendo el servidor en otra terminal?)", err)
+		log.Fatalf("Error connecting to Daemon: %v\n(Is the server running in another terminal?)", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		log.Fatalf("Error del servidor: %s", resp.Status)
+		log.Fatalf("Server error: %s", resp.Status)
 	}
 
 	var servers []domain.Server
 	if err := json.NewDecoder(resp.Body).Decode(&servers); err != nil {
-		log.Fatalf("Error leyendo respuesta: %v", err)
+		log.Fatalf("Error reading response: %v", err)
 	}
 
-	fmt.Println("\n--- SERVIDORES REMOTOS ---")
+	fmt.Println("\n--- REMOTE SERVERS ---")
 	for _, s := range servers {
 		statusIcon := "🔴"
 		if s.Status == "RUNNING" {
@@ -506,9 +506,9 @@ func handleList() {
 
 func handleCreate(name, version, loader string, ram int) {
 	if name == "" || version == "" || loader == "" || ram == 0 {
-		log.Println("Error: Faltan argumentos para crear el servidor.")
-		fmt.Println("\nUso correcto:")
-		fmt.Println("  mc-cli server create --name \"Mi Servidor\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048")
+		log.Println("Error: Missing arguments to create server.")
+		fmt.Println("\nCorrect usage:")
+		fmt.Println("  mc-cli server create --name \"My Server\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048")
 		os.Exit(1)
 	}
 
@@ -525,7 +525,7 @@ func handleCreate(name, version, loader string, ram int) {
 
 	u, err := url.Parse(BaseURL)
 	if err != nil {
-		log.Fatal("Error parseando URL base:", err)
+		log.Fatal("Error parsing base URL:", err)
 	}
 	u.Scheme = "ws"
 	wsURL := fmt.Sprintf("%s/ws/progress/%s", u.String(), requestID)
@@ -534,7 +534,7 @@ func handleCreate(name, version, loader string, ram int) {
 
 	c, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
-		log.Printf("Advertencia: No se pudo conectar al WebSocket de progreso: %v", err)
+		log.Printf("Warning: Could not connect to progress WebSocket: %v", err)
 		close(done)
 	} else {
 		defer c.Close()
@@ -547,7 +547,7 @@ func handleCreate(name, version, loader string, ram int) {
 				}
 				var event domain.ProgressEvent
 				if err := json.Unmarshal(message, &event); err == nil {
-					fmt.Printf("\r[Progreso] %s", event.Message)
+					fmt.Printf("\r[Progress] %s", event.Message)
 					if event.Progress == 100 {
 						fmt.Println()
 						return
@@ -559,16 +559,16 @@ func handleCreate(name, version, loader string, ram int) {
 
 	resp, err := http.Post(BaseURL+"/servers", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Error creando servidor: %s", string(body))
+		log.Fatalf("Error creating server: %s", string(body))
 	}
 
-	fmt.Println("\nPetición de creación recibida. Esperando finalización...")
+	fmt.Println("\nCreation request received. Waiting for completion...")
 
 	if c != nil {
 		<-done
@@ -579,32 +579,32 @@ func handleStart(id string) {
 	reqURL := fmt.Sprintf("%s/servers/%s/start", BaseURL, id)
 	resp, err := http.Post(reqURL, "application/json", nil)
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Falló el inicio: %s", string(body))
+		log.Fatalf("Start failed: %s", string(body))
 	}
 
-	fmt.Println("Orden de inicio enviada. El servidor arrancará en segundo plano.")
+	fmt.Println("Start command sent. The server will start in the background.")
 }
 
 func handleStop(id string) {
 	reqURL := fmt.Sprintf("%s/servers/%s/stop", BaseURL, id)
 	resp, err := http.Post(reqURL, "application/json", nil)
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Falló la detención: %s", string(body))
+		log.Fatalf("Stop failed: %s", string(body))
 	}
 
-	fmt.Println("Orden de parada enviada.")
+	fmt.Println("Stop command sent.")
 }
 
 func handleBackup(id, name string) {
@@ -617,13 +617,13 @@ func handleBackup(id, name string) {
 
 	resp, err := http.Post(reqURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Falló la creación del backup: %s", string(body))
+		log.Fatalf("Backup creation failed: %s", string(body))
 	}
 
 	var backupResponse struct {
@@ -631,23 +631,23 @@ func handleBackup(id, name string) {
 		Path    string `json:"path"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&backupResponse); err != nil {
-		log.Fatalf("Error leyendo respuesta del backup: %v", err)
+		log.Fatalf("Error reading backup response: %v", err)
 	}
 
 	fmt.Println(backupResponse.Message)
-	fmt.Printf("Ubicación: %s\n", backupResponse.Path)
+	fmt.Printf("Location: %s\n", backupResponse.Path)
 }
 
 func handleGetPortRange() {
 	resp, err := http.Get(BaseURL + "/settings/port-range")
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Error obteniendo configuración: %s", string(body))
+		log.Fatalf("Error getting configuration: %s", string(body))
 	}
 
 	var portRange struct {
@@ -655,22 +655,22 @@ func handleGetPortRange() {
 		End   int `json:"end"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&portRange); err != nil {
-		log.Fatalf("Error leyendo respuesta: %v", err)
+		log.Fatalf("Error reading response: %v", err)
 	}
 
-	fmt.Println("\n--- CONFIGURACIÓN DE PUERTOS ---")
-	fmt.Printf("Puerto inicial: %d\n", portRange.Start)
-	fmt.Printf("Puerto final:   %d\n", portRange.End)
-	fmt.Printf("Rango:          %d puertos disponibles\n", portRange.End-portRange.Start+1)
+	fmt.Println("\n--- PORT CONFIGURATION ---")
+	fmt.Printf("Start port: %d\n", portRange.Start)
+	fmt.Printf("End port:   %d\n", portRange.End)
+	fmt.Printf("Range:      %d ports available\n", portRange.End-portRange.Start+1)
 }
 
 func handleSetPortRange(start, end int) {
 	if start == 0 || end == 0 {
-		log.Fatal("Error: Debes especificar ambos puertos (--start y --end)")
+		log.Fatal("Error: You must specify both ports (--start and --end)")
 	}
 
 	if start > end {
-		log.Fatal("Error: El puerto inicial debe ser menor o igual al puerto final")
+		log.Fatal("Error: Start port must be less than or equal to end port")
 	}
 
 	payload := map[string]int{
@@ -681,22 +681,22 @@ func handleSetPortRange(start, end int) {
 
 	req, err := http.NewRequest(http.MethodPut, BaseURL+"/settings/port-range", bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Fatalf("Error creando petición: %v", err)
+		log.Fatalf("Error creating request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("Error conectando al Daemon: %v", err)
+		log.Fatalf("Error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Error actualizando configuración: %s", string(body))
+		log.Fatalf("Error updating configuration: %s", string(body))
 	}
 
-	fmt.Println("Configuración de puertos actualizada exitosamente!")
-	fmt.Printf("Nuevo rango: %d - %d\n", start, end)
+	fmt.Println("Port configuration updated successfully!")
+	fmt.Printf("New range: %d - %d\n", start, end)
 }

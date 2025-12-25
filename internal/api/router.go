@@ -45,7 +45,7 @@ func (api *Server) Start(listenAddr string) error {
 
 	ex, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("error obteniendo ruta del ejecutable: %v", err)
+		return fmt.Errorf("error getting executable path: %v", err)
 	}
 	exPath := filepath.Dir(ex)
 	webDistPath := filepath.Join(exPath, "web_dist")
@@ -79,14 +79,14 @@ func (api *Server) Start(listenAddr string) error {
 
 	handler := api.corsMiddleware(mux)
 
-	fmt.Printf("API escuchando en http://0.0.0.0%s\n", listenAddr)
+	fmt.Printf("API listening on http://0.0.0.0%s\n", listenAddr)
 	return http.ListenAndServe(listenAddr, handler)
 }
 
 func (api *Server) handleGetLoaderVersions(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	if name == "" {
-		http.Error(w, "Falta el nombre del loader", http.StatusBadRequest)
+		http.Error(w, "Missing loader name", http.StatusBadRequest)
 		return
 	}
 
@@ -109,7 +109,7 @@ func (api *Server) handleGetLoaders(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	if name == "" {
-		http.Error(w, "Falta nombre del backup", http.StatusBadRequest)
+		http.Error(w, "Missing backup name", http.StatusBadRequest)
 		return
 	}
 
@@ -124,7 +124,7 @@ func (api *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	if name == "" {
-		http.Error(w, "Falta nombre del backup", http.StatusBadRequest)
+		http.Error(w, "Missing backup name", http.StatusBadRequest)
 		return
 	}
 
@@ -136,7 +136,7 @@ func (api *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		NewServerVersion string `json:"newServerVersion"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
@@ -152,7 +152,7 @@ func (api *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleListBackupsByServer(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Falta ID", http.StatusBadRequest)
+		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return
 	}
 
@@ -180,7 +180,7 @@ func (api *Server) handleListAllBackups(w http.ResponseWriter, r *http.Request) 
 func (api *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Falta ID", http.StatusBadRequest)
+		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return
 	}
 
@@ -190,7 +190,7 @@ func (api *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if srv == nil {
-		http.Error(w, "Servidor no encontrado", http.StatusNotFound)
+		http.Error(w, "Server not found", http.StatusNotFound)
 		return
 	}
 
@@ -200,7 +200,7 @@ func (api *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Falta ID", http.StatusBadRequest)
+		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return
 	}
 
@@ -209,7 +209,7 @@ func (api *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
 		RAM  *int    `json:"ram"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
@@ -224,7 +224,7 @@ func (api *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Falta ID", http.StatusBadRequest)
+		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return
 	}
 
@@ -254,7 +254,7 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 		RequestID string `json:"requestId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
@@ -320,12 +320,12 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleStartServer(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Falta ID", http.StatusBadRequest)
+		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return
 	}
 
 	if err := api.Supervisor.StartServer(id); err != nil {
-		http.Error(w, fmt.Sprintf("Error iniciando: %v", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error starting: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -345,7 +345,7 @@ func (api *Server) handleStopServer(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleBackupServer(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Falta ID", http.StatusBadRequest)
+		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return
 	}
 
@@ -436,7 +436,7 @@ func (api *Server) handleSetPortRange(w http.ResponseWriter, r *http.Request) {
 		End   int `json:"end"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
@@ -452,7 +452,7 @@ func (api *Server) handleSetPortRange(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleConsole(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Falta ID", http.StatusBadRequest)
+		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return
 	}
 
@@ -463,7 +463,7 @@ func (api *Server) handleConsole(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Falta ID", http.StatusBadRequest)
+		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return
 	}
 	hub := api.HubManager.GetHub(id)
@@ -473,7 +473,7 @@ func (api *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 func (api *Server) handleCancelBackup(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Falta ID", http.StatusBadRequest)
+		http.Error(w, "Missing ID", http.StatusBadRequest)
 		return
 	}
 

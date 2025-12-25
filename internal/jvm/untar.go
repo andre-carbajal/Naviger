@@ -37,7 +37,7 @@ func Untar(src string, dest string) error {
 		target := filepath.Join(dest, header.Name)
 
 		if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return fmt.Errorf("archivo tar ilegal: %s", target)
+			return fmt.Errorf("illegal tar file: %s", target)
 		}
 
 		switch header.Typeflag {

@@ -20,7 +20,7 @@ func Unzip(src string, dest string) error {
 		fpath := filepath.Join(dest, f.Name)
 
 		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return fmt.Errorf("archivo zip ilegal: %s", fpath)
+			return fmt.Errorf("illegal zip file: %s", fpath)
 		}
 
 		if f.FileInfo().IsDir() {

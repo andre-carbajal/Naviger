@@ -17,33 +17,33 @@ import (
 )
 
 func main() {
-	fmt.Println("Iniciando Minecraft Manager Daemon...")
+	fmt.Println("Starting Minecraft Manager Daemon...")
 
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatalf("Error al obtener el directorio de configuración del usuario: %v", err)
+		log.Fatalf("Error getting user config directory: %v", err)
 	}
 	configDir := filepath.Join(userConfigDir, "mc-manager")
 
 	cfg, err := config.LoadConfig(configDir)
 	if err != nil {
-		log.Fatalf("Error al cargar la configuración: %v", err)
+		log.Fatalf("Error loading configuration: %v", err)
 	}
 
-	fmt.Printf("Usando base de datos: %s\n", cfg.DatabasePath)
-	fmt.Printf("Usando directorio de servidores: %s\n", cfg.ServersPath)
-	fmt.Printf("Usando directorio de runtimes de Java: %s\n", cfg.RuntimesPath)
-	fmt.Printf("Usando directorio de backups: %s\n", cfg.BackupsPath)
+	fmt.Printf("Using database: %s\n", cfg.DatabasePath)
+	fmt.Printf("Using servers directory: %s\n", cfg.ServersPath)
+	fmt.Printf("Using Java runtimes directory: %s\n", cfg.RuntimesPath)
+	fmt.Printf("Using backups directory: %s\n", cfg.BackupsPath)
 
 	for _, path := range []string{cfg.ServersPath, cfg.BackupsPath, cfg.RuntimesPath} {
 		if err := os.MkdirAll(path, 0755); err != nil {
-			log.Fatalf("Fatal: No se pudo crear el directorio '%s': %v", path, err)
+			log.Fatalf("Fatal: Could not create directory '%s': %v", path, err)
 		}
 	}
 
 	store, err := storage.NewGormStore(cfg.DatabasePath)
 	if err != nil {
-		log.Fatalf("Fatal: No se pudo conectar a la DB: %v", err)
+		log.Fatalf("Fatal: Could not connect to DB: %v", err)
 	}
 
 	jvmMgr := jvm.NewManager(cfg.RuntimesPath)
@@ -64,9 +64,9 @@ func main() {
 	apiServer := api.NewAPIServer(container)
 
 	listenAddr := fmt.Sprintf(":%d", config.GetPort())
-	fmt.Printf("API Server escuchando en %s\n", listenAddr)
+	fmt.Printf("API Server listening on %s\n", listenAddr)
 
 	if err := apiServer.Start(listenAddr); err != nil {
-		log.Fatalf("Error API: %v", err)
+		log.Fatalf("API Error: %v", err)
 	}
 }

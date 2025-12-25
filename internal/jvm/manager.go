@@ -44,7 +44,7 @@ func (m *Manager) EnsureJava(version int) (string, error) {
 		}
 	}
 
-	fmt.Printf("Java %d no detectado. Iniciando instalación automática (%s)...\n", version, runtime.GOOS)
+	fmt.Printf("Java %d not detected. Starting automatic installation (%s)...\n", version, runtime.GOOS)
 
 	if err := m.downloadAndInstall(version, installDir); err != nil {
 		_ = os.RemoveAll(installDir)
@@ -58,7 +58,7 @@ func (m *Manager) EnsureJava(version int) (string, error) {
 
 	absPath, err := filepath.Abs(finalBin)
 	if err != nil {
-		return "", fmt.Errorf("no se pudo obtener ruta absoluta: %w", err)
+		return "", fmt.Errorf("could not get absolute path: %w", err)
 	}
 
 	if runtime.GOOS != "windows" {
@@ -86,7 +86,7 @@ func (m *Manager) downloadAndInstall(version int, destDir string) error {
 		apiOS = "linux"
 		ext = ".tar.gz"
 	default:
-		return fmt.Errorf("sistema operativo no soportado: %s", osName)
+		return fmt.Errorf("unsupported operating system: %s", osName)
 	}
 
 	switch arch {
@@ -95,7 +95,7 @@ func (m *Manager) downloadAndInstall(version int, destDir string) error {
 	case "arm64":
 		arch = "aarch64"
 	default:
-		return fmt.Errorf("arquitectura no soportada: %s", arch)
+		return fmt.Errorf("unsupported architecture: %s", arch)
 	}
 
 	url := fmt.Sprintf(
@@ -103,7 +103,7 @@ func (m *Manager) downloadAndInstall(version int, destDir string) error {
 		version, apiOS, arch,
 	)
 
-	fmt.Printf("Descargando JRE desde: %s\n", url)
+	fmt.Printf("Downloading JRE from: %s\n", url)
 
 	tmpFile, err := os.CreateTemp("", "jdk-*"+ext)
 	if err != nil {
@@ -114,12 +114,12 @@ func (m *Manager) downloadAndInstall(version int, destDir string) error {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return fmt.Errorf("error de red: %w", err)
+		return fmt.Errorf("network error: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("API Adoptium error: %d", resp.StatusCode)
+		return fmt.Errorf("Adoptium API error: %d", resp.StatusCode)
 	}
 
 	copyErr := func() error {
@@ -129,7 +129,7 @@ func (m *Manager) downloadAndInstall(version int, destDir string) error {
 			return err
 		}
 		if closeErr := tmpFile.Close(); closeErr != nil {
-			return fmt.Errorf("error cerrando archivo temporal: %w", closeErr)
+			return fmt.Errorf("error closing temp file: %w", closeErr)
 		}
 		return nil
 	}()
@@ -141,15 +141,15 @@ func (m *Manager) downloadAndInstall(version int, destDir string) error {
 		return err
 	}
 
-	fmt.Printf("Descomprimiendo %s...\n", ext)
+	fmt.Printf("Unpacking %s...\n", ext)
 
 	if ext == ".zip" {
 		if err := Unzip(tmpPath, destDir); err != nil {
-			return fmt.Errorf("error unzip: %w", err)
+			return fmt.Errorf("unzip error: %w", err)
 		}
 	} else {
 		if err := Untar(tmpPath, destDir); err != nil {
-			return fmt.Errorf("error untar: %w", err)
+			return fmt.Errorf("untar error: %w", err)
 		}
 	}
 
@@ -172,13 +172,13 @@ func findJavaBin(root, binName string) (string, error) {
 	})
 
 	if walkErr != nil && walkErr != io.EOF {
-		return "", fmt.Errorf("error recorriendo %s: %w", root, walkErr)
+		return "", fmt.Errorf("error walking %s: %w", root, walkErr)
 	}
 
 	if foundPath != "" {
 		return foundPath, nil
 	}
-	return "", fmt.Errorf("binario %s no encontrado tras instalación", binName)
+	return "", fmt.Errorf("binary %s not found after installation", binName)
 }
 
 func validateJavaVersion(javaPath string, required int) (bool, error) {

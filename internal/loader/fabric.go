@@ -37,13 +37,13 @@ func (l *FabricLoader) GetSupportedVersions() ([]string, error) {
 
 func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Buscando versión %s...", versionID)
+		progressChan <- fmt.Sprintf("Searching for version %s...", versionID)
 	}
-	fmt.Printf("[Fabric Loader] Buscando versión %s...\n", versionID)
+	fmt.Printf("[Fabric Loader] Searching for version %s...\n", versionID)
 
 	gameVersions, err := l.getGameVersions()
 	if err != nil {
-		return fmt.Errorf("error obteniendo versiones de Fabric: %w", err)
+		return fmt.Errorf("error getting Fabric versions: %w", err)
 	}
 
 	versionExists := false
@@ -55,27 +55,27 @@ func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<
 	}
 
 	if !versionExists {
-		return fmt.Errorf("versión %s no encontrada en Fabric", versionID)
+		return fmt.Errorf("version %s not found in Fabric", versionID)
 	}
 
 	if progressChan != nil {
-		progressChan <- "Obteniendo versiones del loader..."
+		progressChan <- "Getting loader versions..."
 	}
 	loaderVersions, err := l.getLoaderVersions()
 	if err != nil {
-		return fmt.Errorf("error obteniendo versiones del loader de Fabric: %w", err)
+		return fmt.Errorf("error getting Fabric loader versions: %w", err)
 	}
 	if len(loaderVersions) == 0 {
-		return fmt.Errorf("no se encontraron versiones del loader para Fabric")
+		return fmt.Errorf("no loader versions found for Fabric")
 	}
 	latestLoaderVersion := loaderVersions[0]
 
 	if progressChan != nil {
-		progressChan <- "Obteniendo última versión del instalador..."
+		progressChan <- "Getting latest installer version..."
 	}
 	installerVersion, err := l.getLatestInstallerVersion()
 	if err != nil {
-		return fmt.Errorf("error obteniendo la última versión del instalador: %w", err)
+		return fmt.Errorf("error getting latest installer version: %w", err)
 	}
 
 	downloadURL := fmt.Sprintf("%sloader/%s/%s/%s/server/jar",
@@ -83,9 +83,9 @@ func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<
 
 	finalPath := filepath.Join(destDir, "server.jar")
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Descargando Fabric server.jar desde: %s", downloadURL)
+		progressChan <- fmt.Sprintf("Downloading Fabric server.jar from: %s", downloadURL)
 	}
-	fmt.Printf("Descargando Fabric server.jar desde: %s\n", downloadURL)
+	fmt.Printf("Downloading Fabric server.jar from: %s\n", downloadURL)
 
 	err = l.downloadFile(downloadURL, finalPath)
 	if err != nil {
@@ -93,9 +93,9 @@ func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<
 	}
 
 	if progressChan != nil {
-		progressChan <- "Instalación completada."
+		progressChan <- "Installation completed."
 	}
-	fmt.Println("Instalación completada. El servidor está iniciando.")
+	fmt.Println("Installation completed. The server is starting.")
 	return nil
 }
 
@@ -107,7 +107,7 @@ func (l *FabricLoader) getGameVersions() ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API respondió con status %d", resp.StatusCode)
+		return nil, fmt.Errorf("API responded with status %d", resp.StatusCode)
 	}
 
 	var versions []FabricGameVersion
@@ -133,7 +133,7 @@ func (l *FabricLoader) getLoaderVersions() ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API respondió con status %d", resp.StatusCode)
+		return nil, fmt.Errorf("API responded with status %d", resp.StatusCode)
 	}
 
 	var versions []FabricLoaderVersion
@@ -157,7 +157,7 @@ func (l *FabricLoader) getLatestInstallerVersion() (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API respondió con status %d", resp.StatusCode)
+		return "", fmt.Errorf("API responded with status %d", resp.StatusCode)
 	}
 
 	var versions []FabricInstallerVersion
@@ -171,7 +171,7 @@ func (l *FabricLoader) getLatestInstallerVersion() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("no se encontró una versión estable del instalador")
+	return "", fmt.Errorf("no stable installer version found")
 }
 
 func (l *FabricLoader) downloadFile(url string, dest string) error {
@@ -188,7 +188,7 @@ func (l *FabricLoader) downloadFile(url string, dest string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error descargando archivo: status %d", resp.StatusCode)
+		return fmt.Errorf("error downloading file: status %d", resp.StatusCode)
 	}
 
 	_, err = io.Copy(out, resp.Body)

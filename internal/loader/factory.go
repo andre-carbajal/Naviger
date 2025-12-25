@@ -15,7 +15,7 @@ func GetLoader(loaderType string) (ServerLoader, error) {
 	case "neoforge":
 		return NewNeoForgeLoader(), nil
 	default:
-		return nil, fmt.Errorf("tipo de loader '%s' no soportado", loaderType)
+		return nil, fmt.Errorf("loader type '%s' not supported", loaderType)
 	}
 }
 

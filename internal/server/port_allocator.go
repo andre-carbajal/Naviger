@@ -9,7 +9,7 @@ import (
 func AllocatePort(store *storage.GormStore) (int, error) {
 	startPort, endPort, err := store.GetPortRange()
 	if err != nil {
-		return 0, fmt.Errorf("error obteniendo rango de puertos: %w", err)
+		return 0, fmt.Errorf("error getting port range: %w", err)
 	}
 
 	servers, err := store.ListServers()
@@ -32,7 +32,7 @@ func AllocatePort(store *storage.GormStore) (int, error) {
 		}
 	}
 
-	return 0, fmt.Errorf("no hay puertos libres en el rango %d-%d", startPort, endPort)
+	return 0, fmt.Errorf("no free ports in range %d-%d", startPort, endPort)
 }
 
 func isPortAvailable(port int) bool {

@@ -29,13 +29,13 @@ func (m *Manager) CreateServer(name string, loaderType string, version string, r
 	serverDir := filepath.Join(m.ServersPath, id)
 
 	if progressChan != nil {
-		progressChan <- "Asignando puerto..."
+		progressChan <- "Allocating port..."
 	}
 	assignedPort, err := AllocatePort(m.Store)
 	if err != nil {
-		return nil, fmt.Errorf("error asignando puerto: %w", err)
+		return nil, fmt.Errorf("error allocating port: %w", err)
 	}
-	fmt.Printf("Puerto asignado para '%s': %d\n", name, assignedPort)
+	fmt.Printf("Port allocated for '%s': %d\n", name, assignedPort)
 
 	downloader, err := loader.GetLoader(loaderType)
 	if err != nil {
@@ -43,21 +43,21 @@ func (m *Manager) CreateServer(name string, loaderType string, version string, r
 	}
 
 	if err := os.MkdirAll(serverDir, 0755); err != nil {
-		return nil, fmt.Errorf("error filesystem: %w", err)
+		return nil, fmt.Errorf("filesystem error: %w", err)
 	}
 
 	if err := downloader.Load(version, serverDir, progressChan); err != nil {
 		os.RemoveAll(serverDir)
-		return nil, fmt.Errorf("error descarga: %w", err)
+		return nil, fmt.Errorf("download error: %w", err)
 	}
 
 	if progressChan != nil {
-		progressChan <- "Configurando servidor..."
+		progressChan <- "Configuring server..."
 	}
 	os.WriteFile(filepath.Join(serverDir, "eula.txt"), []byte("eula=true"), 0644)
 
 	if err := UpdateServerProperties(serverDir, assignedPort); err != nil {
-		fmt.Printf("Advertencia: No se pudo escribir server.properties: %v\n", err)
+		fmt.Printf("Warning: Could not write server.properties: %v\n", err)
 	}
 
 	newServer := &domain.Server{
@@ -73,7 +73,7 @@ func (m *Manager) CreateServer(name string, loaderType string, version string, r
 
 	if err := m.Store.SaveServer(newServer); err != nil {
 		os.RemoveAll(serverDir)
-		return nil, fmt.Errorf("error DB: %w", err)
+		return nil, fmt.Errorf("DB error: %w", err)
 	}
 
 	return newServer, nil
@@ -91,11 +91,11 @@ func (m *Manager) DeleteServer(id string) error {
 	serverDir := filepath.Join(m.ServersPath, id)
 
 	if err := os.RemoveAll(serverDir); err != nil {
-		return fmt.Errorf("error eliminando archivos del servidor: %w", err)
+		return fmt.Errorf("error deleting server files: %w", err)
 	}
 
 	if err := m.Store.DeleteServer(id); err != nil {
-		return fmt.Errorf("error eliminando servidor de la base de datos: %w", err)
+		return fmt.Errorf("error deleting server from database: %w", err)
 	}
 
 	return nil
