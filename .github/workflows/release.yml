@@ -1,0 +1,104 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-native:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: windows-latest
+            name: windows
+          - os: macos-13
+            name: macos-x64
+          - os: macos-latest
+            name: macos-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          check-latest: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Vet Go code
+        run: go vet ./...
+
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: .\build.bat
+        shell: cmd
+
+      - name: Build the Inno Setup Installer
+        if: runner.os == 'Windows'
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
+        with:
+          path: setup.iss
+
+      - name: Prepare Artifacts (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p build/windows
+          move Output\NavigerSetup.exe build\windows\
+        shell: bash
+
+      - name: Create Zip Archive (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          BUILD_DIR="build/${{ matrix.name }}"
+          ZIP_FILE="build/${{ matrix.name }}.zip"
+          cd "$BUILD_DIR"
+          zip -r "../../${ZIP_FILE}" ./*
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-build
+          path: |
+            build/${{ matrix.name }}/*
+
+  release:
+    needs: build-native
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: build
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/linux-build/*.zip
+            build/macos-x64-build/*.zip
+            build/macos-arm64-build/*.zip
+            build/windows-build/*.exe
+          tag_name: ${{ github.ref_name }}
+          name: Naviger ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          prerelease: true
+          token: ${{ secrets.GITHUB_TOKEN }}
