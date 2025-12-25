@@ -57,6 +57,8 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
         with:
           path: setup.iss
+        env:
+          MYAPP_VERSION: ${{ github.ref_name }}
 
       - name: Prepare Artifacts (Windows)
         if: runner.os == 'Windows'

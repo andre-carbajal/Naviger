@@ -1,5 +1,5 @@
 #define MyAppName "Naviger"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion GetEnv("MYAPP_VERSION")
 #define MyAppPublisher "Andre Carbajal"
 
 [Setup]
