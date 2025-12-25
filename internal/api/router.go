@@ -50,8 +50,16 @@ func (api *Server) Start(listenAddr string) error {
 	exPath := filepath.Dir(ex)
 	webDistPath := filepath.Join(exPath, "web_dist")
 
-	fs := http.FileServer(http.Dir(webDistPath))
-	mux.Handle("/", fs)
+	fileServer := http.FileServer(http.Dir(webDistPath))
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Join(webDistPath, r.URL.Path)
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			http.ServeFile(w, r, filepath.Join(webDistPath, "index.html"))
+			return
+		}
+		fileServer.ServeHTTP(w, r)
+	})
 
 	mux.HandleFunc("GET /loaders", api.handleGetLoaders)
 	mux.HandleFunc("GET /loaders/{name}/versions", api.handleGetLoaderVersions)
