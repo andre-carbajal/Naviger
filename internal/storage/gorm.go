@@ -3,12 +3,15 @@ package storage
 import (
 	"errors"
 	"fmt"
+	"log"
 	"naviger/internal/domain"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 type Server struct {
@@ -32,7 +35,15 @@ type GormStore struct {
 }
 
 func NewGormStore(path string) (*GormStore, error) {
-	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	newLogger := gormlogger.New(
+		log.New(os.Stdout, "", log.LstdFlags),
+		gormlogger.Config{
+			IgnoreRecordNotFoundError: true,
+			LogLevel:                  gormlogger.Error,
+		},
+	)
+
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{Logger: newLogger})
 	if err != nil {
 		return nil, err
 	}
