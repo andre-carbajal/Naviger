@@ -35,7 +35,7 @@ Filename: "{app}\\nssm.exe"; Parameters: "stop NavigerService"; Flags: runhidden
 Filename: "{app}\\nssm.exe"; Parameters: "remove NavigerService confirm"; Flags: runhidden
 
 [UninstallDelete]
-Type: files; Name: "{app}\\*"; Flags: recursesubdirs
+Type: files; Name: "{app}\\*"
 Type: dirifempty; Name: "{app}"
 
 [Code]
