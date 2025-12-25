@@ -16,7 +16,7 @@ jobs:
             name: linux
           - os: windows-latest
             name: windows
-          - os: macos-13
+          - os: macos-15-intel
             name: macos-x64
           - os: macos-latest
             name: macos-arm64
@@ -52,35 +52,41 @@ jobs:
         run: .\build.bat
         shell: cmd
 
+      - name: Set MYAPP_VERSION (strip v)
+        if: runner.os == 'Windows'
+        run: |
+          echo "MYAPP_VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+
       - name: Build the Inno Setup Installer
         if: runner.os == 'Windows'
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
         with:
           path: setup.iss
-        env:
-          MYAPP_VERSION: ${{ github.ref_name }}
 
       - name: Prepare Artifacts (Windows)
         if: runner.os == 'Windows'
         run: |
-          mkdir -p build/windows
-          move Output\NavigerSetup.exe build\windows\
+          mkdir -p build/windows-build
+          mv Output/NavigerSetup.exe build/windows-build/
         shell: bash
 
       - name: Create Zip Archive (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          BUILD_DIR="build/${{ matrix.name }}"
-          ZIP_FILE="build/${{ matrix.name }}.zip"
-          cd "$BUILD_DIR"
-          zip -r "../../${ZIP_FILE}" ./*
+          BUILD_DIR="build/${{ matrix.name }}-build"
+          ZIP_FILE="${{ matrix.name }}.zip"
+          mkdir -p "$BUILD_DIR"
+          cp -r dist/* "$BUILD_DIR"/
+          (cd "$BUILD_DIR" && zip -r "../${{ matrix.name }}-build/${ZIP_FILE}" ./*) || true
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}-build
           path: |
-            build/${{ matrix.name }}/*
+            build/${{ matrix.name }}-build/*
 
   release:
     needs: build-native
