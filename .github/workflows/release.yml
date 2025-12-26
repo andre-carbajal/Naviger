@@ -121,5 +121,4 @@ jobs:
           tag_name: ${{ github.event.inputs.version || github.ref_name }}
           name: Naviger ${{ github.event.inputs.version || github.ref_name }}
           body_path: CHANGELOG.md
-          prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}
