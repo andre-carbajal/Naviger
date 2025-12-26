@@ -58,6 +58,37 @@ fi
 INSTALL_DIR="/opt/naviger"
 BIN_DIR="/usr/local/bin"
 
+# Stop existing service if running
+echo "Checking for existing installation..."
+if [ "$OS_TYPE" = "linux" ]; then
+    if systemctl is-active --quiet naviger; then
+        echo "Stopping existing Naviger service..."
+        systemctl stop naviger
+    fi
+elif [ "$OS_TYPE" = "macos" ]; then
+    if [ "$REAL_USER" = "root" ]; then
+        USER_HOME="/var/root"
+    else
+        USER_HOME="/Users/$REAL_USER"
+    fi
+    PLIST_FILE="$USER_HOME/Library/LaunchAgents/com.naviger.server.plist"
+
+    if [ -f "$PLIST_FILE" ]; then
+        echo "Stopping existing Naviger agent..."
+        if [ "$REAL_USER" != "root" ]; then
+            sudo -u "$REAL_USER" launchctl unload "$PLIST_FILE" 2>/dev/null || true
+        else
+            launchctl unload "$PLIST_FILE" 2>/dev/null || true
+        fi
+    fi
+fi
+
+# Clean up previous installation
+if [ -d "$INSTALL_DIR" ]; then
+    echo "Removing previous installation at ${INSTALL_DIR}..."
+    rm -rf "${INSTALL_DIR}"
+fi
+
 # Fetch latest version
 echo "Fetching latest release info..."
 LATEST_URL=$(curl -Ls -o /dev/null -w %{url_effective} "https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest")
@@ -90,8 +121,6 @@ unzip -q "${TMP_DIR}/${ASSET_NAME}" -d "${TMP_DIR}/extracted"
 
 echo "Installing Naviger to ${INSTALL_DIR}..."
 mkdir -p "${INSTALL_DIR}"
-# Remove old files to ensure clean install
-rm -rf "${INSTALL_DIR}/*"
 cp -r "${TMP_DIR}/extracted/"* "${INSTALL_DIR}/"
 
 # Cleanup
@@ -132,7 +161,7 @@ EOF
     systemctl daemon-reload
     echo "Enabling and starting naviger service..."
     systemctl enable naviger
-    systemctl restart naviger
+    systemctl start naviger
     echo "Naviger service installed and started."
 
 elif [ "$OS_TYPE" = "macos" ]; then
@@ -193,4 +222,3 @@ fi
 
 echo "Installation complete!"
 echo "You can now use 'naviger-cli' to manage your servers."
-echo "You can use the web interface by accessing http://localhost:23008 (default port)."
