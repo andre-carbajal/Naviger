@@ -135,7 +135,7 @@ const RestoreBackupModal: React.FC<RestoreBackupModalProps> = ({
                                 <option value="" disabled>Select a server</option>
                                 {stoppedServers.map(server => (
                                     <option key={server.id} value={server.id}>
-                                        {server.name}
+                                        {server.name} ({server.id})
                                     </option>
                                 ))}
                             </select>

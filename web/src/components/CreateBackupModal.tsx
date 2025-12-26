@@ -67,7 +67,7 @@ const CreateBackupModal: React.FC<CreateBackupModalProps> = ({
                                 <option value="" disabled>Select a server</option>
                                 {servers.map(server => (
                                     <option key={server.id} value={server.id}>
-                                        {server.name}
+                                        {server.name} ({server.id})
                                     </option>
                                 ))}
                             </select>

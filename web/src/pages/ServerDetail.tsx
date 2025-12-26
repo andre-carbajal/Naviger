@@ -84,6 +84,7 @@ const ServerDetail: React.FC = () => {
                             {server.status}
                         </span>
                     </div>
+                    <div className="text-sm text-gray-500 mb-2">{server.id}</div>
                     <div>
                         {server.loader} {server.version} • {server.ram}MB RAM • Port {server.port}
                     </div>

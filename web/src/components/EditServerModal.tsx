@@ -40,6 +40,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({isOpen, onClose, onSav
         <div className="modal-overlay">
             <div className="modal-content">
                 <h2>Edit Server</h2>
+                <div className="text-sm text-gray-500 mb-4">{server?.id}</div>
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Server Name</label>

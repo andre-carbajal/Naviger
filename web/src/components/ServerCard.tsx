@@ -16,7 +16,10 @@ const ServerCard: React.FC<ServerCardProps> = ({server, onStart, onStop, onDelet
         return (
             <div className="card">
                 <div className="card-header">
-                    <h3 className="card-title">{server.name}</h3>
+                    <div>
+                        <h3 className="card-title">{server.name}</h3>
+                        <div className="text-sm" style={{color: 'var(--text-muted)'}}>{server.id}</div>
+                    </div>
                     <span className="status-badge status-creating">CREATING</span>
                 </div>
                 <div className="card-content">
@@ -53,7 +56,10 @@ const ServerCard: React.FC<ServerCardProps> = ({server, onStart, onStop, onDelet
     return (
         <div className="card">
             <div className="card-header">
-                <h3 className="card-title">{server.name}</h3>
+                <div>
+                    <h3 className="card-title">{server.name}</h3>
+                    <div className="text-sm" style={{color: 'var(--text-muted)'}}>{server.id}</div>
+                </div>
                 <span className={`status-badge status-${server.status.toLowerCase()}`}>{server.status}</span>
             </div>
             <div className="card-content card-stats">

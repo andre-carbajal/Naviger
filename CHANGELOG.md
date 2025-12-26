@@ -1,1 +1,1 @@
-- Initial Application Release
+- Display server ID alongside names in various modals and server cards
