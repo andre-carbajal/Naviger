@@ -15,27 +15,24 @@ SolidCompression=yes
 PrivilegesRequired=admin
 
 [Files]
-Source: "dist\\naviger-server.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\\naviger-cli.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\\nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\\web_dist\\*"; DestDir: "{app}\\web_dist"; Flags: ignoreversion recursesubdirs
+Source: "dist\naviger-server.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\naviger-cli.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\web_dist\*"; DestDir: "{app}\web_dist"; Flags: ignoreversion recursesubdirs
 
 [Icons]
-Name: "{group}\\Naviger CLI"; Filename: "{app}\\naviger-cli.exe"
+Name: "{group}\{#MyAppName} Server"; Filename: "{app}\naviger-server.exe"
+Name: "{group}\Naviger Web UI"; Filename: "http://localhost:23008"
 
 [Registry]
-Root: HKLM; Subkey: "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath('{app}')
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath('{app}')
 
 [Run]
-Filename: "{app}\\nssm.exe"; Parameters: "install NavigerService \"{app}\\naviger-server.exe\""; Flags: runhidden
-Filename: "{app}\\nssm.exe"; Parameters: "start NavigerService"; Flags: runhidden
-
-[UninstallRun]
-Filename: "{app}\\nssm.exe"; Parameters: "stop NavigerService"; Flags: runhidden
-Filename: "{app}\\nssm.exe"; Parameters: "remove NavigerService confirm"; Flags: runhidden
+Filename: "{app}\naviger-server.exe"; Description: "Iniciar el servidor de Naviger"; Flags: postinstall nowait skipifsilent
+Filename: "http://localhost:23008"; Description: "Abrir la interfaz web (localhost:23008)"; Flags: postinstall shellexec skipifsilent
 
 [UninstallDelete]
-Type: files; Name: "{app}\\*"
+Type: filesandordirs; Name: "{app}\web_dist"
+Type: files; Name: "{app}\*"
 Type: dirifempty; Name: "{app}"
 
 [Code]
@@ -43,7 +40,7 @@ function NeedsAddPath(Param: string): boolean;
 var
   Path: string;
 begin
-  if RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment', 'Path', Path) then
+  if RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', Path) then
   begin
     Result := Pos(Uppercase(Param), Uppercase(Path)) = 0;
   end else Result := True;
