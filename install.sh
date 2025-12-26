@@ -119,8 +119,20 @@ fi
 echo "Extracting..."
 unzip -q "${TMP_DIR}/${ASSET_NAME}" -d "${TMP_DIR}/extracted"
 
+echo "Stopping existing services to allow update..."
+if [ "$OS_TYPE" = "linux" ]; then
+    systemctl stop naviger 2>/dev/null || true
+elif [ "$OS_TYPE" = "macos" ]; then
+    USER_HOME=$(eval echo "~${REAL_USER}")
+    PLIST_FILE="$USER_HOME/Library/LaunchAgents/com.naviger.server.plist"
+    if [ -f "$PLIST_FILE" ]; then
+        sudo -u "$REAL_USER" launchctl unload "$PLIST_FILE" 2>/dev/null || true
+    fi
+fi
+
 echo "Installing Naviger to ${INSTALL_DIR}..."
 mkdir -p "${INSTALL_DIR}"
+rm -rf "${INSTALL_DIR}/*"
 cp -r "${TMP_DIR}/extracted/"* "${INSTALL_DIR}/"
 
 # Cleanup
