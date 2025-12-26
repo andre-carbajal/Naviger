@@ -70,11 +70,11 @@ jobs:
 
       - name: Prepare Artifacts (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          VERSION="${{ github.event.inputs.version || github.ref_name }}"
-          mkdir -p build
-          mv Output/Naviger-${{ env.MYAPP_VERSION }}-windows.exe build/Naviger-${VERSION}-windows.exe
-        shell: bash
+          $VERSION = "${{ github.event.inputs.version || github.ref_name }}"
+          New-Item -ItemType Directory -Force -Path build
+          Copy-Item "Output/Naviger-${{ env.MYAPP_VERSION }}-windows.exe" "build/Naviger-${VERSION}-windows.exe"
 
       - name: Create Zip Archive (Linux/macOS)
         if: runner.os != 'Windows'
