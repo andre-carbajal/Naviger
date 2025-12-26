@@ -73,7 +73,7 @@ jobs:
         run: |
           VERSION="${{ github.event.inputs.version || github.ref_name }}"
           mkdir -p build/windows
-          move Output\NavigerSetup.exe build\windows\Naviger-${VERSION}-windows.exe
+          mv Output/NavigerSetup.exe build/windows/Naviger-${VERSION}-windows.exe
         shell: bash
 
       - name: Create Zip Archive (Linux/macOS)
