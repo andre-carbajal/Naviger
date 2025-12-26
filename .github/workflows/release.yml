@@ -80,6 +80,10 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          
+          mkdir -p "build/${{ matrix.name }}"
+          cp -r dist/* "build/${{ matrix.name }}/"
+
           BUILD_DIR="build/${{ matrix.name }}"
           ZIP_NAME="Naviger-${VERSION}-${{ matrix.name }}.zip"
           
