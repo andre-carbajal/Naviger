@@ -71,25 +71,28 @@ jobs:
       - name: Prepare Artifacts (Windows)
         if: runner.os == 'Windows'
         run: |
-          mkdir -p build/windows-build
-          mv Output/NavigerSetup.exe build/windows-build/
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          mkdir -p build/windows
+          move Output\NavigerSetup.exe build\windows\Naviger-${VERSION}-windows.exe
         shell: bash
 
       - name: Create Zip Archive (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          BUILD_DIR="build/${{ matrix.name }}-build"
-          ZIP_FILE="${{ matrix.name }}.zip"
-          mkdir -p "$BUILD_DIR"
-          cp -r dist/* "$BUILD_DIR"/
-          (cd "$BUILD_DIR" && zip -r "../${{ matrix.name }}-build/${ZIP_FILE}" ./*) || true
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          BUILD_DIR="build/${{ matrix.name }}"
+          ZIP_NAME="Naviger-${VERSION}-${{ matrix.name }}.zip"
+          
+          cd "$BUILD_DIR"
+          zip -r "../../build/${ZIP_NAME}" ./*
+        shell: bash
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}-build
           path: |
-            build/${{ matrix.name }}-build/*
+            build/Naviger-*.*
 
   release:
     needs: build-native
@@ -109,12 +112,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/linux-build/*.zip
-            build/macos-x64-build/*.zip
-            build/macos-arm64-build/*.zip
-            build/windows-build/*.exe
-          tag_name: ${{ github.ref_name }}
-          name: Naviger ${{ github.ref_name }}
+            build/**/*-build/Naviger-*.zip
+            build/**/*-build/Naviger-*-windows.exe
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: Naviger ${{ github.event.inputs.version || github.ref_name }}
           body_path: CHANGELOG.md
           prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}
