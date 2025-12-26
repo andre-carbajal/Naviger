@@ -11,6 +11,7 @@ import (
 	"naviger/internal/runner"
 	"naviger/internal/server"
 	"naviger/internal/storage"
+	"naviger/internal/updater"
 	"naviger/internal/ws"
 	"net/http"
 	"os"
@@ -82,6 +83,8 @@ func (api *Server) Start(listenAddr string) error {
 	mux.HandleFunc("GET /settings/port-range", api.handleGetPortRange)
 	mux.HandleFunc("PUT /settings/port-range", api.handleSetPortRange)
 
+	mux.HandleFunc("GET /updates", api.handleCheckUpdates)
+
 	mux.HandleFunc("GET /ws/servers/{id}/console", api.handleConsole)
 	mux.HandleFunc("GET /ws/progress/{id}", api.handleProgress)
 
@@ -89,6 +92,17 @@ func (api *Server) Start(listenAddr string) error {
 
 	fmt.Printf("API listening on http://localhost%s\n", listenAddr)
 	return http.ListenAndServe(listenAddr, handler)
+}
+
+func (api *Server) handleCheckUpdates(w http.ResponseWriter, r *http.Request) {
+	updateInfo, err := updater.CheckForUpdates()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updateInfo)
 }
 
 func (api *Server) handleGetLoaderVersions(w http.ResponseWriter, r *http.Request) {

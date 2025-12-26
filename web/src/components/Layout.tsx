@@ -1,9 +1,22 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {NavLink, Outlet} from 'react-router-dom';
-import {DatabaseBackup, LayoutDashboard, Settings, Terminal} from 'lucide-react';
+import {ArrowUpCircle, DatabaseBackup, LayoutDashboard, Settings, Terminal} from 'lucide-react';
 import '../App.css';
+import {api} from "../services/api.ts";
 
 const Layout: React.FC = () => {
+    const [updateAvailable, setUpdateAvailable] = useState(false);
+    const [releaseUrl, setReleaseUrl] = useState('');
+
+    useEffect(() => {
+        api.checkUpdates().then(response => {
+            if (response.data.update_available) {
+                setUpdateAvailable(true);
+                setReleaseUrl(response.data.release_url);
+            }
+        }).catch(console.error);
+    }, []);
+
     return (
         <div className="layout">
             <aside className="sidebar">
@@ -26,6 +39,14 @@ const Layout: React.FC = () => {
                         <span>Settings</span>
                     </NavLink>
                 </nav>
+                {updateAvailable && (
+                    <div className="update-notification">
+                        <a href={releaseUrl} target="_blank" rel="noopener noreferrer" className="update-link">
+                            <ArrowUpCircle size={20}/>
+                            <span>Update Available</span>
+                        </a>
+                    </div>
+                )}
             </aside>
             <main className="content">
                 <header className="topbar">

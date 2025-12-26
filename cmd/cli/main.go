@@ -10,6 +10,7 @@ import (
 	"log"
 	"naviger/internal/config"
 	"naviger/internal/domain"
+	"naviger/internal/updater"
 	"net/http"
 	"net/url"
 	"os"
@@ -43,6 +44,7 @@ func printHelp() {
 	fmt.Printf("  %-60s %s\n", "ports set --start <n> --end <m>", "Set port range")
 	fmt.Println()
 	fmt.Printf("  %-60s %s\n", "loaders", "Show available server loaders")
+	fmt.Printf("  %-60s %s\n", "update", "Check for updates")
 	fmt.Printf("  %-60s %s\n", "help", "Show this help message")
 	fmt.Println()
 	fmt.Println("Example:")
@@ -109,6 +111,7 @@ func main() {
 
 	loadersCmd := flag.NewFlagSet("loaders", flag.ExitOnError)
 	logsCmd := flag.NewFlagSet("logs", flag.ExitOnError)
+	updateCmd := flag.NewFlagSet("update", flag.ExitOnError)
 	helpCmd := flag.NewFlagSet("help", flag.ExitOnError)
 
 	command := args[0]
@@ -250,6 +253,10 @@ func main() {
 		parseFlags(loadersCmd, cmdArgs, "loaders")
 		handleListLoaders()
 
+	case "update":
+		parseFlags(updateCmd, cmdArgs, "update")
+		handleCheckUpdates()
+
 	case "help":
 		parseFlags(helpCmd, cmdArgs, "help")
 		printHelp()
@@ -258,6 +265,34 @@ func main() {
 		fmt.Println("Unknown command:", command)
 		printHelp()
 		os.Exit(1)
+	}
+}
+
+func handleCheckUpdates() {
+	resp, err := http.Get(BaseURL + "/updates")
+	if err != nil {
+		log.Fatalf("Error connecting to Daemon: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		log.Fatalf("Server error: %s", resp.Status)
+	}
+
+	var updateInfo updater.UpdateInfo
+	if err := json.NewDecoder(resp.Body).Decode(&updateInfo); err != nil {
+		log.Fatalf("Error reading response: %v", err)
+	}
+
+	fmt.Println("\n--- UPDATE CHECK ---")
+	fmt.Printf("Current version: %s\n", updateInfo.CurrentVersion)
+	fmt.Printf("Latest version:  %s\n", updateInfo.LatestVersion)
+
+	if updateInfo.UpdateAvailable {
+		fmt.Println("\nUpdate available!")
+		fmt.Printf("Download it here: %s\n", updateInfo.ReleaseURL)
+	} else {
+		fmt.Println("\nYou are up to date.")
 	}
 }
 
