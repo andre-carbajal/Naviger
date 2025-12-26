@@ -2,10 +2,11 @@ package runner
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"naviger/internal/jvm"
+	"naviger/internal/runner/strategy"
 	"naviger/internal/server"
 	"naviger/internal/storage"
 	"naviger/internal/ws"
@@ -13,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 )
@@ -89,72 +89,11 @@ func (s *Supervisor) StartServer(serverID string) error {
 		return fmt.Errorf("error preparing Java: %w", err)
 	}
 
-	var cmd *exec.Cmd
-	var args []string
-
-	if srv.Loader == "forge" || srv.Loader == "neoforge" {
-		librariesDir := filepath.Join(absServerDir, "libraries")
-		var argsFile string
-		targetFile := "unix_args.txt"
-		if runtime.GOOS == "windows" {
-			targetFile = "win_args.txt"
-		}
-
-		if _, err := os.Stat(librariesDir); os.IsNotExist(err) {
-			return fmt.Errorf("libraries directory not found in %s (required for Forge/NeoForge)", librariesDir)
-		}
-
-		err := filepath.WalkDir(librariesDir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if !d.IsDir() && d.Name() == targetFile {
-				argsFile = path
-				return io.EOF
-			}
-			return nil
-		})
-
-		if argsFile == "" {
-			if err != io.EOF {
-				return fmt.Errorf("args file %s not found in libraries", targetFile)
-			}
-		}
-
-		args = []string{
-			fmt.Sprintf("-Xmx%dM", srv.RAM),
-			"-Xms512M",
-		}
-
-		userJvmArgs := filepath.Join(absServerDir, "user_jvm_args.txt")
-		if _, err := os.Stat(userJvmArgs); err == nil {
-			args = append(args, fmt.Sprintf("@%s", userJvmArgs))
-		}
-
-		args = append(args, fmt.Sprintf("@%s", argsFile))
-
-		args = append(args, "nogui")
-
-	} else {
-		jarPath := "server.jar"
-		jarFull := filepath.Join(absServerDir, jarPath)
-		if _, err := os.Stat(jarFull); err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("server jar not found at %s", jarFull)
-			}
-			return fmt.Errorf("error accessing %s: %w", jarFull, err)
-		}
-
-		args = []string{
-			fmt.Sprintf("-Xmx%dM", srv.RAM),
-			"-Xms512M",
-			"-jar", jarPath,
-			"nogui",
-		}
+	runner := strategy.GetRunner(srv.Loader)
+	cmd, err := runner.BuildCommand(javaPath, absServerDir, srv.RAM)
+	if err != nil {
+		return err
 	}
-
-	cmd = exec.Command(javaPath, args...)
-	cmd.Dir = absServerDir
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -227,12 +166,9 @@ func (s *Supervisor) StartServer(serverID string) error {
 			return
 		}
 
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			_ = exitErr.ExitCode()
-			if uerr := s.Store.UpdateStatus(id, "STOPPED"); uerr != nil {
-				fmt.Printf("warning: could not update status to STOPPED: %v\n", uerr)
-			}
-		} else {
 			if uerr := s.Store.UpdateStatus(id, "STOPPED"); uerr != nil {
 				fmt.Printf("warning: could not update status to STOPPED: %v\n", uerr)
 			}
