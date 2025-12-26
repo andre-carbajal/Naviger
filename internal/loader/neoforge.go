@@ -43,15 +43,28 @@ func (l *NeoForgeLoader) GetSupportedVersions() ([]string, error) {
 	seen := make(map[string]bool)
 
 	for _, version := range response.Versions {
-		if !strings.HasPrefix(version, "0.") {
-			parts := strings.Split(version, ".")
-			if len(parts) >= 2 {
-				formatted := fmt.Sprintf("1.%s.%s", parts[0], parts[1])
+		if strings.HasPrefix(version, "0.") || strings.Contains(version, "snapshot") || strings.Contains(version, "alpha") {
+			continue
+		}
 
-				if !seen[formatted] {
-					versionsList = append(versionsList, formatted)
-					seen[formatted] = true
+		parts := strings.Split(version, ".")
+		if len(parts) >= 2 {
+			majorNum := parts[0]
+			var formatted string
+
+			if majorNum == "20" || majorNum == "21" {
+				formatted = fmt.Sprintf("1.%s.%s", majorNum, parts[1])
+			} else {
+				if len(parts) >= 3 {
+					formatted = fmt.Sprintf("%s.%s.%s", majorNum, parts[1], parts[2])
+				} else {
+					formatted = fmt.Sprintf("%s.%s", majorNum, parts[1])
 				}
+			}
+
+			if !seen[formatted] {
+				versionsList = append(versionsList, formatted)
+				seen[formatted] = true
 			}
 		}
 	}
@@ -80,11 +93,45 @@ func (l *NeoForgeLoader) getLoaderVersions(minecraftVersion string) ([]string, e
 	parts := strings.Split(minecraftVersion, ".")
 
 	if len(parts) >= 3 {
-		versionPrefix := parts[1] + "." + parts[2] + "."
+		// Check if it's old versioning scheme (1.20.x or 1.21.x)
+		if parts[0] == "1" && (parts[1] == "20" || parts[1] == "21") {
+			// Old scheme: Minecraft 1.21.11 -> NeoForge versions starting with 21.11.
+			versionPrefix := parts[1] + "." + parts[2] + "."
 
-		for _, version := range response.Versions {
-			if strings.HasPrefix(version, versionPrefix) {
-				loaderVersionsList = append(loaderVersionsList, version)
+			for _, version := range response.Versions {
+				if strings.HasPrefix(version, versionPrefix) {
+					loaderVersionsList = append(loaderVersionsList, version)
+				}
+			}
+		} else {
+			// New scheme: Minecraft 26.1.0 -> NeoForge versions starting with 26.1.0.
+			versionPrefix := parts[0] + "." + parts[1] + "." + parts[2] + "."
+
+			for _, version := range response.Versions {
+				if strings.HasPrefix(version, versionPrefix) {
+					loaderVersionsList = append(loaderVersionsList, version)
+				}
+			}
+		}
+	} else if len(parts) == 2 {
+		// Handle cases like 1.20 or 26.1
+		if parts[0] == "1" && (parts[1] == "20" || parts[1] == "21") {
+			// Old scheme: 1.20 -> 20.0.
+			versionPrefix := parts[1] + ".0."
+
+			for _, version := range response.Versions {
+				if strings.HasPrefix(version, versionPrefix) {
+					loaderVersionsList = append(loaderVersionsList, version)
+				}
+			}
+		} else {
+			// New scheme: 26.1 -> 26.1.
+			versionPrefix := parts[0] + "." + parts[1] + "."
+
+			for _, version := range response.Versions {
+				if strings.HasPrefix(version, versionPrefix) {
+					loaderVersionsList = append(loaderVersionsList, version)
+				}
 			}
 		}
 	}
