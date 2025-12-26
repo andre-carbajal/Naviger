@@ -6,8 +6,10 @@ import (
 	"io"
 	"io/fs"
 	"naviger/internal/jvm"
+	"naviger/internal/server"
 	"naviger/internal/storage"
 	"naviger/internal/ws"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -62,9 +64,23 @@ func (s *Supervisor) StartServer(serverID string) error {
 		return fmt.Errorf("error getting absolute path for server: %w", err)
 	}
 
+	if err := checkPortAvailable(srv.Port); err != nil {
+		fmt.Printf("Port %d is busy, attempting to allocate a new one...\n", srv.Port)
+		newPort, err := server.AllocatePort(s.Store)
+		if err != nil {
+			return fmt.Errorf("failed to allocate new port: %w", err)
+		}
+
+		if err := s.Store.UpdateServerPort(srv.ID, newPort); err != nil {
+			return fmt.Errorf("failed to update server port in database: %w", err)
+		}
+		srv.Port = newPort
+		fmt.Printf("Reassigned server %s to port %d\n", srv.Name, newPort)
+	}
+
 	configFile := filepath.Join(absServerDir, "server.properties")
 	if err := ensurePortInProperties(configFile, srv.Port); err != nil {
-		fmt.Printf("⚠Warning: Could not update server.properties: %v\n", err)
+		fmt.Printf("Warning: Could not update server.properties: %v\n", err)
 	}
 
 	requiredJava := GetJavaVersionForMC(srv.Version)
@@ -311,4 +327,13 @@ func ensurePortInProperties(path string, port int) error {
 		writer.WriteString(line + "\n")
 	}
 	return writer.Flush()
+}
+
+func checkPortAvailable(port int) error {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return fmt.Errorf("port %d is not available: %w", port, err)
+	}
+	_ = ln.Close()
+	return nil
 }

@@ -1,1 +1,2 @@
 - Display server ID alongside names in various modals and server cards
+- Check port availability before attempting to start a server

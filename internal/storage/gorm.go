@@ -116,6 +116,10 @@ func (s *GormStore) UpdateServer(id string, name *string, ram *int) error {
 	return s.db.Model(&Server{}).Where("id = ?", id).Updates(updates).Error
 }
 
+func (s *GormStore) UpdateServerPort(id string, port int) error {
+	return s.db.Model(&Server{}).Where("id = ?", id).Update("port", port).Error
+}
+
 func (s *GormStore) ListServers() ([]domain.Server, error) {
 	var gormServers []Server
 	if err := s.db.Find(&gormServers).Error; err != nil {
