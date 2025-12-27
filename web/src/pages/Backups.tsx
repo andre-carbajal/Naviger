@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useParams} from 'react-router-dom';
-import {api} from '../services/api';
+import {api, WS_HOST} from '../services/api';
 import type {Backup} from '../types';
 import {Button} from '../components/ui/Button';
 import {Loader2, Plus, RotateCcw, Trash2, X} from 'lucide-react';
@@ -65,7 +65,7 @@ const Backups: React.FC = () => {
         if (activeSockets.current.has(requestId)) return;
 
         activeSockets.current.add(requestId);
-        const ws = new WebSocket(`ws://localhost:23008/ws/progress/${requestId}`);
+        const ws = new WebSocket(`ws://${WS_HOST}/ws/progress/${requestId}`);
         wsMap.current.set(requestId, ws);
 
         ws.onmessage = (event) => {

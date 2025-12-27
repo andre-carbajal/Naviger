@@ -1,1 +1,3 @@
 - Implement update check functionality and notification in the UI
+- Update WebSocket and API configurations for dynamic port handling
+- Cobra is now used on cli commands

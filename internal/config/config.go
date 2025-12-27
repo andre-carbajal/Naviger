@@ -13,6 +13,7 @@ const (
 	defaultRuntimesDir  = "runtimes"
 	defaultDatabaseFile = "manager.db"
 	defaultPort         = 23008
+	devPort             = 23009
 )
 
 type Config struct {
@@ -67,5 +68,8 @@ func createDefaultConfig(configPath, configDir string) (*Config, error) {
 }
 
 func GetPort() int {
+	if os.Getenv("NAVIGER_DEV") == "true" || os.Getenv("NAVIGER_DEV") == "1" {
+		return devPort
+	}
 	return defaultPort
 }

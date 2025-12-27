@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -19,57 +18,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/spf13/cobra"
 )
 
 var BaseURL string
 
-func printHelp() {
-	prog := filepath.Base(os.Args[0])
-	fmt.Printf("Usage: %s <resource> <action> [flags]\n\n", prog)
-	fmt.Println("Resources and actions:")
-	fmt.Printf("  %-60s %s\n", "server create --name <name> --version <version> --loader <loader> --ram <MB>", "Create new server")
-	fmt.Printf("  %-60s %s\n", "server list", "List servers")
-	fmt.Printf("  %-60s %s\n", "server start <id>", "Start server")
-	fmt.Printf("  %-60s %s\n", "server stop <id>", "Stop server")
-	fmt.Printf("  %-60s %s\n", "server delete <id>", "Delete server")
-	fmt.Printf("  %-60s %s\n", "server logs <id>", "View server console and send commands")
-	fmt.Println()
-	fmt.Printf("  %-60s %s\n", "backup create <id> [name]", "Create server backup")
-	fmt.Printf("  %-60s %s\n", "backup list [id]", "List backups (all or by server)")
-	fmt.Printf("  %-60s %s\n", "backup delete <name>", "Delete backup")
-	fmt.Printf("  %-60s %s\n", "backup restore <name> --target <id>", "Restore backup to existing server")
-	fmt.Printf("  %-60s %s\n", "backup restore <name> --new --name <name> --version <ver> --loader <loader> --ram <MB>", "Restore backup to new server")
-	fmt.Println()
-	fmt.Printf("  %-60s %s\n", "ports get", "Show port range")
-	fmt.Printf("  %-60s %s\n", "ports set --start <n> --end <m>", "Set port range")
-	fmt.Println()
-	fmt.Printf("  %-60s %s\n", "loaders", "Show available server loaders")
-	fmt.Printf("  %-60s %s\n", "update", "Check for updates")
-	fmt.Printf("  %-60s %s\n", "help", "Show this help message")
-	fmt.Println()
-	fmt.Println("Example:")
-	fmt.Printf("  %s server create --name \"My Server\" --version \"1.20.1\" --loader \"vanilla\" --ram 2048\n", prog)
-}
-
-func parseFlags(fs *flag.FlagSet, args []string, ctx string) {
-	if err := fs.Parse(args); err != nil {
-		log.Fatalf("Error parsing flags for %s: %v", ctx, err)
-	}
-}
-
 func main() {
-	flag.Usage = printHelp
-	flag.Parse()
-
-	port := config.GetPort()
-	BaseURL = fmt.Sprintf("http://localhost:%d", port)
-
-	args := flag.Args()
-	if len(args) < 1 {
-		printHelp()
-		os.Exit(1)
-	}
-
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatalf("Error getting user config directory: %v", err)
@@ -81,189 +35,196 @@ func main() {
 		log.Fatalf("Error loading configuration: %v", err)
 	}
 
-	serverCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
-	serverListCmd := flag.NewFlagSet("list", flag.ExitOnError)
-	serverStartCmd := flag.NewFlagSet("start", flag.ExitOnError)
-	serverStopCmd := flag.NewFlagSet("stop", flag.ExitOnError)
-	serverDeleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
+	port := config.GetPort()
+	BaseURL = fmt.Sprintf("http://localhost:%d", port)
 
-	serverCreateName := serverCreateCmd.String("name", "", "Server name")
-	serverCreateVer := serverCreateCmd.String("version", "", "Minecraft version")
-	serverCreateLoader := serverCreateCmd.String("loader", "", "Loader (vanilla, paper, etc.)")
-	serverCreateRam := serverCreateCmd.Int("ram", 0, "RAM in MB")
+	var rootCmd = &cobra.Command{
+		Use:   "naviger-cli",
+		Short: "CLI for Naviger Server Manager",
+	}
 
-	backupCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
-	backupListCmd := flag.NewFlagSet("list", flag.ExitOnError)
-	backupDeleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
-	backupRestoreCmd := flag.NewFlagSet("restore", flag.ExitOnError)
+	// Server Commands
+	var serverCmd = &cobra.Command{
+		Use:   "server",
+		Short: "Manage servers",
+	}
 
-	backupRestoreTarget := backupRestoreCmd.String("target", "", "Target server ID (to restore to existing)")
-	backupRestoreNew := backupRestoreCmd.Bool("new", false, "Create new server from backup")
-	backupRestoreName := backupRestoreCmd.String("name", "", "New server name")
-	backupRestoreVer := backupRestoreCmd.String("version", "1.20.1", "New server version")
-	backupRestoreLoader := backupRestoreCmd.String("loader", "vanilla", "New server loader")
-	backupRestoreRam := backupRestoreCmd.Int("ram", 2048, "New server RAM")
+	var createName, createVer, createLoader string
+	var createRam int
+	var serverCreateCmd = &cobra.Command{
+		Use:   "create",
+		Short: "Create a new server",
+		Run: func(cmd *cobra.Command, args []string) {
+			handleCreate(createName, createVer, createLoader, createRam)
+		},
+	}
+	serverCreateCmd.Flags().StringVar(&createName, "name", "", "Server name")
+	serverCreateCmd.Flags().StringVar(&createVer, "version", "", "Minecraft version")
+	serverCreateCmd.Flags().StringVar(&createLoader, "loader", "", "Loader (vanilla, paper, etc.)")
+	serverCreateCmd.Flags().IntVar(&createRam, "ram", 0, "RAM in MB")
+	serverCreateCmd.MarkFlagRequired("name")
+	serverCreateCmd.MarkFlagRequired("version")
+	serverCreateCmd.MarkFlagRequired("loader")
+	serverCreateCmd.MarkFlagRequired("ram")
 
-	portsGetCmd := flag.NewFlagSet("get", flag.ExitOnError)
-	portsSetCmd := flag.NewFlagSet("set", flag.ExitOnError)
-	portsSetStart := portsSetCmd.Int("start", 0, "Start port")
-	portsSetEnd := portsSetCmd.Int("end", 0, "End port")
-
-	loadersCmd := flag.NewFlagSet("loaders", flag.ExitOnError)
-	logsCmd := flag.NewFlagSet("logs", flag.ExitOnError)
-	updateCmd := flag.NewFlagSet("update", flag.ExitOnError)
-	helpCmd := flag.NewFlagSet("help", flag.ExitOnError)
-
-	command := args[0]
-	cmdArgs := args[1:]
-
-	switch command {
-	case "server":
-		if len(cmdArgs) < 1 {
-			fmt.Println("Usage: naviger-cli server <subcommand>")
-			fmt.Println("Subcommands: create, list, start, stop, delete, logs")
-			os.Exit(1)
-		}
-		sub := cmdArgs[0]
-		subArgs := cmdArgs[1:]
-
-		switch sub {
-		case "create":
-			parseFlags(serverCreateCmd, subArgs, "server create")
-			handleCreate(*serverCreateName, *serverCreateVer, *serverCreateLoader, *serverCreateRam)
-
-		case "list":
-			parseFlags(serverListCmd, subArgs, "server list")
+	var serverListCmd = &cobra.Command{
+		Use:   "list",
+		Short: "List all servers",
+		Run: func(cmd *cobra.Command, args []string) {
 			handleList()
+		},
+	}
 
-		case "start":
-			parseFlags(serverStartCmd, subArgs, "server start")
-			if serverStartCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the server ID. Ex: naviger-cli server start <UUID>")
+	var serverStartCmd = &cobra.Command{
+		Use:   "start [id]",
+		Short: "Start a server",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			handleStart(args[0])
+		},
+	}
+
+	var serverStopCmd = &cobra.Command{
+		Use:   "stop [id]",
+		Short: "Stop a server",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			handleStop(args[0])
+		},
+	}
+
+	var serverDeleteCmd = &cobra.Command{
+		Use:   "delete [id]",
+		Short: "Delete a server",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			handleDelete(args[0])
+		},
+	}
+
+	var serverLogsCmd = &cobra.Command{
+		Use:   "logs [id]",
+		Short: "View server logs and console",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			handleLogs(args[0])
+		},
+	}
+
+	serverCmd.AddCommand(serverCreateCmd, serverListCmd, serverStartCmd, serverStopCmd, serverDeleteCmd, serverLogsCmd)
+
+	// Backup Commands
+	var backupCmd = &cobra.Command{
+		Use:   "backup",
+		Short: "Manage backups",
+	}
+
+	var backupCreateCmd = &cobra.Command{
+		Use:   "create [serverId] [name]",
+		Short: "Create a backup",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			name := ""
+			if len(args) > 1 {
+				name = args[1]
 			}
-			handleStart(serverStartCmd.Arg(0))
+			handleBackup(args[0], name)
+		},
+	}
 
-		case "stop":
-			parseFlags(serverStopCmd, subArgs, "server stop")
-			if serverStopCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the server ID.")
-			}
-			handleStop(serverStopCmd.Arg(0))
-
-		case "delete":
-			parseFlags(serverDeleteCmd, subArgs, "server delete")
-			if serverDeleteCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the server ID.")
-			}
-			handleDelete(serverDeleteCmd.Arg(0))
-
-		case "logs":
-			parseFlags(logsCmd, subArgs, "server logs")
-			if logsCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the server ID. Ex: naviger-cli server logs <UUID>")
-			}
-			handleLogs(logsCmd.Arg(0))
-
-		default:
-			fmt.Println("Unknown subcommand for 'server':", sub)
-			os.Exit(1)
-		}
-
-	case "backup":
-		if len(cmdArgs) < 1 {
-			fmt.Println("Usage: naviger-cli backup <subcommand>")
-			fmt.Println("Subcommands: create, list, delete, restore")
-			os.Exit(1)
-		}
-		sub := cmdArgs[0]
-		subArgs := cmdArgs[1:]
-
-		switch sub {
-		case "create":
-			parseFlags(backupCreateCmd, subArgs, "backup create")
-			if backupCreateCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the server ID. Ex: naviger-cli backup create <UUID> [optional-name]")
-			}
-			serverID := backupCreateCmd.Arg(0)
-			backupName := ""
-			if backupCreateCmd.NArg() > 1 {
-				backupName = backupCreateCmd.Arg(1)
-			}
-			handleBackup(serverID, backupName)
-
-		case "list":
-			parseFlags(backupListCmd, subArgs, "backup list")
-			if backupListCmd.NArg() > 0 {
-				handleListBackups(backupListCmd.Arg(0))
+	var backupListCmd = &cobra.Command{
+		Use:   "list [serverId]",
+		Short: "List backups",
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) > 0 {
+				handleListBackups(args[0])
 			} else {
 				handleListAllBackups()
 			}
+		},
+	}
 
-		case "delete":
-			parseFlags(backupDeleteCmd, subArgs, "backup delete")
-			if backupDeleteCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the backup name.")
-			}
-			handleDeleteBackup(backupDeleteCmd.Arg(0))
+	var backupDeleteCmd = &cobra.Command{
+		Use:   "delete [name]",
+		Short: "Delete a backup",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			handleDeleteBackup(args[0])
+		},
+	}
 
-		case "restore":
-			parseFlags(backupRestoreCmd, subArgs, "backup restore")
-			if backupRestoreCmd.NArg() < 1 {
-				log.Fatal("Error: You must specify the backup name.")
-			}
-			backupName := backupRestoreCmd.Arg(0)
-			handleRestoreBackup(backupName, *backupRestoreTarget, *backupRestoreNew, *backupRestoreName, *backupRestoreVer, *backupRestoreLoader, *backupRestoreRam)
+	var restoreTarget, restoreName, restoreVer, restoreLoader string
+	var restoreRam int
+	var restoreNew bool
+	var backupRestoreCmd = &cobra.Command{
+		Use:   "restore [name]",
+		Short: "Restore a backup",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			handleRestoreBackup(args[0], restoreTarget, restoreNew, restoreName, restoreVer, restoreLoader, restoreRam)
+		},
+	}
+	backupRestoreCmd.Flags().StringVar(&restoreTarget, "target", "", "Target server ID (to restore to existing)")
+	backupRestoreCmd.Flags().BoolVar(&restoreNew, "new", false, "Create new server from backup")
+	backupRestoreCmd.Flags().StringVar(&restoreName, "name", "", "New server name")
+	backupRestoreCmd.Flags().StringVar(&restoreVer, "version", "1.20.1", "New server version")
+	backupRestoreCmd.Flags().StringVar(&restoreLoader, "loader", "vanilla", "New server loader")
+	backupRestoreCmd.Flags().IntVar(&restoreRam, "ram", 2048, "New server RAM")
 
-		default:
-			fmt.Println("Unknown subcommand for 'backup':", sub)
-			fmt.Println("Usage: naviger-cli backup <subcommand>")
-			fmt.Println("Subcommands: create, list, delete, restore")
-			os.Exit(1)
-		}
+	backupCmd.AddCommand(backupCreateCmd, backupListCmd, backupDeleteCmd, backupRestoreCmd)
 
-	case "ports":
-		if len(cmdArgs) < 1 {
-			fmt.Println("Usage: naviger-cli ports <subcommand>")
-			fmt.Println("Subcommands: get, set")
-			os.Exit(1)
-		}
-		sub := cmdArgs[0]
-		subArgs := cmdArgs[1:]
+	// Ports Commands
+	var portsCmd = &cobra.Command{
+		Use:   "ports",
+		Short: "Manage port range",
+	}
 
-		switch sub {
-		case "get":
-			parseFlags(portsGetCmd, subArgs, "ports get")
+	var portsGetCmd = &cobra.Command{
+		Use:   "get",
+		Short: "Get port range",
+		Run: func(cmd *cobra.Command, args []string) {
 			handleGetPortRange()
+		},
+	}
 
-		case "set":
-			parseFlags(portsSetCmd, subArgs, "ports set")
-			if *portsSetStart == 0 || *portsSetEnd == 0 {
+	var portsStart, portsEnd int
+	var portsSetCmd = &cobra.Command{
+		Use:   "set",
+		Short: "Set port range",
+		Run: func(cmd *cobra.Command, args []string) {
+			if portsStart == 0 || portsEnd == 0 {
 				log.Fatal("Error: You must specify both --start and --end flags to update the port range")
 			}
-			handleSetPortRange(*portsSetStart, *portsSetEnd)
+			handleSetPortRange(portsStart, portsEnd)
+		},
+	}
+	portsSetCmd.Flags().IntVar(&portsStart, "start", 0, "Start port")
+	portsSetCmd.Flags().IntVar(&portsEnd, "end", 0, "End port")
 
-		default:
-			fmt.Println("Unknown subcommand for 'ports':", sub)
-			fmt.Println("Usage: naviger-cli ports <subcommand>")
-			fmt.Println("Subcommands: get, set")
-			os.Exit(1)
-		}
+	portsCmd.AddCommand(portsGetCmd, portsSetCmd)
 
-	case "loaders":
-		parseFlags(loadersCmd, cmdArgs, "loaders")
-		handleListLoaders()
+	// Loaders Command
+	var loadersCmd = &cobra.Command{
+		Use:   "loaders",
+		Short: "List available loaders",
+		Run: func(cmd *cobra.Command, args []string) {
+			handleListLoaders()
+		},
+	}
 
-	case "update":
-		parseFlags(updateCmd, cmdArgs, "update")
-		handleCheckUpdates()
+	// Update Command
+	var updateCmd = &cobra.Command{
+		Use:   "update",
+		Short: "Check for updates",
+		Run: func(cmd *cobra.Command, args []string) {
+			handleCheckUpdates()
+		},
+	}
 
-	case "help":
-		parseFlags(helpCmd, cmdArgs, "help")
-		printHelp()
+	rootCmd.AddCommand(serverCmd, backupCmd, portsCmd, loadersCmd, updateCmd)
 
-	default:
-		fmt.Println("Unknown command:", command)
-		printHelp()
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }

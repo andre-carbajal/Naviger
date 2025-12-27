@@ -1,8 +1,11 @@
 import axios from 'axios';
 import type {Backup, Server} from '../types';
 
+const API_PORT = import.meta.env.DEV ? 23009 : 23008;
+export const WS_HOST = `localhost:${API_PORT}`;
+
 const apiInstance = axios.create({
-    baseURL: 'http://localhost:23008',
+    baseURL: `http://localhost:${API_PORT}`,
     timeout: 5000,
     headers: {
         'Content-Type': 'application/json',

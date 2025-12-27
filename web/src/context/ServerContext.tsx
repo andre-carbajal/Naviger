@@ -1,6 +1,6 @@
 import type {ReactNode} from 'react';
 import React, {createContext, useCallback, useEffect, useRef, useState} from 'react';
-import {api} from '../services/api';
+import {api, WS_HOST} from '../services/api';
 import type {Server} from '../types';
 
 interface ServerContextType {
@@ -71,7 +71,7 @@ export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
         if (activeSockets.current.has(requestId)) return;
 
         activeSockets.current.add(requestId);
-        const ws = new WebSocket(`ws://localhost:23008/ws/progress/${requestId}`);
+        const ws = new WebSocket(`ws://${WS_HOST}/ws/progress/${requestId}`);
         wsMap.current.set(requestId, ws);
 
         ws.onmessage = (event) => {

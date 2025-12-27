@@ -1,4 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
+import {WS_HOST} from '../services/api';
 
 export const useConsole = (serverId: string) => {
     const ws = useRef<WebSocket | null>(null);
@@ -9,8 +10,7 @@ export const useConsole = (serverId: string) => {
         if (!serverId) return;
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = 'localhost:23008';
-        const url = `${protocol}//${host}/ws/servers/${serverId}/console`;
+        const url = `${protocol}//${WS_HOST}/ws/servers/${serverId}/console`;
 
         console.log(`Connecting to WS: ${url}`);
         ws.current = new WebSocket(url);

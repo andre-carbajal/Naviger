@@ -4,20 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
 const (
-	CurrentVersion = "v0.1.1"
+	CurrentVersion = "v1.1.0"
 	RepoOwner      = "andre-carbajal"
 	RepoName       = "naviger"
 )
 
-type Release struct {
-	TagName string `json:"tag_name"`
-	HTMLURL string `json:"html_url"`
-	Name    string `json:"name"`
-	Body    string `json:"body"`
+type Tag struct {
+	Name string `json:"name"`
 }
 
 type UpdateInfo struct {
@@ -28,31 +26,75 @@ type UpdateInfo struct {
 }
 
 func CheckForUpdates() (*UpdateInfo, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", RepoOwner, RepoName)
-	resp, err := http.Get(url)
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/tags", RepoOwner, RepoName)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "naviger-updater")
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch latest release: %s", resp.Status)
+		return nil, fmt.Errorf("failed to fetch tags: %s", resp.Status)
 	}
 
-	var release Release
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+	var tags []Tag
+	if err := json.NewDecoder(resp.Body).Decode(&tags); err != nil {
 		return nil, err
 	}
 
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
-	currentVersion := strings.TrimPrefix(CurrentVersion, "v")
+	if len(tags) == 0 {
+		return &UpdateInfo{
+			CurrentVersion:  CurrentVersion,
+			LatestVersion:   CurrentVersion,
+			UpdateAvailable: false,
+		}, nil
+	}
 
-	updateAvailable := latestVersion != currentVersion
+	latestTag := tags[0].Name
+	updateAvailable := compareVersions(latestTag, CurrentVersion) > 0
+	releaseURL := fmt.Sprintf("https://github.com/%s/%s/releases/tag/%s", RepoOwner, RepoName, latestTag)
 
 	return &UpdateInfo{
 		CurrentVersion:  CurrentVersion,
-		LatestVersion:   release.TagName,
+		LatestVersion:   latestTag,
 		UpdateAvailable: updateAvailable,
-		ReleaseURL:      release.HTMLURL,
+		ReleaseURL:      releaseURL,
 	}, nil
+}
+
+func compareVersions(v1, v2 string) int {
+	v1 = strings.TrimPrefix(v1, "v")
+	v2 = strings.TrimPrefix(v2, "v")
+
+	parts1 := strings.Split(v1, ".")
+	parts2 := strings.Split(v2, ".")
+
+	for i := 0; i < len(parts1) && i < len(parts2); i++ {
+		n1, _ := strconv.Atoi(parts1[i])
+		n2, _ := strconv.Atoi(parts2[i])
+		if n1 > n2 {
+			return 1
+		}
+		if n1 < n2 {
+			return -1
+		}
+	}
+
+	if len(parts1) > len(parts2) {
+		return 1
+	}
+	if len(parts1) < len(parts2) {
+		return -1
+	}
+
+	return 0
 }
