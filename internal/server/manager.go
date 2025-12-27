@@ -7,6 +7,7 @@ import (
 	"naviger/internal/storage"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +26,10 @@ func NewManager(serversPath string, store *storage.GormStore) *Manager {
 }
 
 func (m *Manager) CreateServer(name string, loaderType string, version string, ram int, progressChan chan<- string) (*domain.Server, error) {
+	if strings.ContainsAny(name, "\\/:*?\"<>|") || strings.Contains(name, "..") {
+		return nil, fmt.Errorf("invalid server name: contains forbidden characters")
+	}
+
 	id := uuid.New().String()
 	serverDir := filepath.Join(m.ServersPath, id)
 
