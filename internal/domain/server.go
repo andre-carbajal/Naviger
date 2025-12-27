@@ -23,3 +23,9 @@ type ProgressEvent struct {
 	Message  string `json:"message"`
 	Progress int    `json:"progress"`
 }
+
+type ServerStats struct {
+	CPU  float64 `json:"cpu"`
+	RAM  uint64  `json:"ram"`
+	Disk int64   `json:"disk"`
+}

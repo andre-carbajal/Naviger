@@ -16,6 +16,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"naviger/internal/domain"
+
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 type Supervisor struct {
@@ -157,8 +161,6 @@ func (s *Supervisor) StartServer(serverID string) error {
 		delete(s.processes, id)
 		s.mu.Unlock()
 
-		s.HubManager.RemoveHub(id)
-
 		if err == nil {
 			if uerr := s.Store.UpdateStatus(id, "STOPPED"); uerr != nil {
 				fmt.Printf("warning: could not update status to STOPPED: %v\n", uerr)
@@ -206,6 +208,87 @@ func (s *Supervisor) SendCommand(serverID string, cmd string) error {
 
 	_, err := io.WriteString(proc.Stdin, cmd+"\n")
 	return err
+}
+
+func (s *Supervisor) GetServerStats(serverID string) (*domain.ServerStats, error) {
+	s.mu.Lock()
+	proc, exists := s.processes[serverID]
+	s.mu.Unlock()
+
+	stats := &domain.ServerStats{
+		CPU:  0,
+		RAM:  0,
+		Disk: 0,
+	}
+
+	srv, err := s.Store.GetServerByID(serverID)
+	if err == nil && srv != nil {
+		serverDir := filepath.Join(s.ServersPath, srv.ID)
+		var size int64
+		_ = filepath.Walk(serverDir, func(_ string, info os.FileInfo, err error) error {
+			if err == nil && !info.IsDir() {
+				size += info.Size()
+			}
+			return nil
+		})
+		stats.Disk = size
+	}
+
+	if !exists {
+		return stats, nil
+	}
+
+	if proc.Cmd != nil && proc.Cmd.Process != nil {
+		p, err := process.NewProcess(int32(proc.Cmd.Process.Pid))
+		if err == nil {
+			if cpu, err := p.CPUPercent(); err == nil {
+				stats.CPU = cpu
+			}
+			if mem, err := p.MemoryInfo(); err == nil {
+				stats.RAM = mem.RSS
+			}
+		}
+	}
+
+	return stats, nil
+}
+
+func (s *Supervisor) GetAllServerStats() (map[string]domain.ServerStats, error) {
+	servers, err := s.Store.ListServers()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]domain.ServerStats)
+
+	for _, srv := range servers {
+		stats, err := s.GetServerStats(srv.ID)
+		if err == nil && stats != nil {
+			result[srv.ID] = *stats
+		} else {
+			result[srv.ID] = domain.ServerStats{}
+		}
+	}
+
+	return result, nil
+}
+
+func (s *Supervisor) ResetRunningStates() error {
+	servers, err := s.Store.ListServers()
+	if err != nil {
+		return err
+	}
+
+	for _, srv := range servers {
+		if srv.Status == "RUNNING" || srv.Status == "STARTING" || srv.Status == "STOPPING" {
+			if err := s.Store.UpdateStatus(srv.ID, "STOPPED"); err != nil {
+				fmt.Printf("Failed to reset status for server %s: %v\n", srv.Name, err)
+			} else {
+				fmt.Printf("Reset server %s status to STOPPED\n", srv.Name)
+			}
+		}
+	}
+	return nil
 }
 
 func ensurePortInProperties(path string, port int) error {

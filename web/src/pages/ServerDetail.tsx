@@ -1,9 +1,10 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
-import {Play, Settings, Square} from 'lucide-react';
+import {Copy, Cpu, HardDrive, MemoryStick, Play, Settings, Square} from 'lucide-react';
 import {api} from '../services/api';
 import type {Server} from '../types';
 import {useConsole} from '../hooks/useConsole';
+import {useServerStats} from '../hooks/useServerStats';
 import ConsoleView from '../components/ConsoleView';
 import EditServerModal from '../components/EditServerModal';
 import {Button} from '../components/ui/Button';
@@ -16,6 +17,15 @@ const ServerDetail: React.FC = () => {
     const [commandInput, setCommandInput] = useState('');
 
     const {logs, sendCommand, isConnected} = useConsole(id || '');
+    const {stats} = useServerStats(id || '', server?.status === 'RUNNING');
+
+    const formatBytes = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
 
     const fetchServer = useCallback(async () => {
         if (!id) return;
@@ -84,9 +94,54 @@ const ServerDetail: React.FC = () => {
                             {server.status}
                         </span>
                     </div>
-                    <div className="text-sm text-gray-500 mb-2">{server.id}</div>
-                    <div>
-                        {server.loader} {server.version} • {server.ram}MB RAM • Port {server.port}
+                    <div className="text-sm text-gray-500 mb-2"
+                         style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <span style={{
+                            fontFamily: 'monospace',
+                            background: 'rgba(0,0,0,0.3)',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                        }}>
+                            {server.id}
+                        </span>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(server.id);
+                                // Optional: simple alert or toast could go here, but keeping it simple
+                            }}
+                            className="btn-secondary"
+                            style={{
+                                padding: '4px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                display: 'flex'
+                            }}
+                            title="Copy ID"
+                        >
+                            <Copy size={14}/>
+                        </button>
+                    </div>
+
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '15px',
+                        color: 'var(--text-muted)',
+                        fontSize: '0.9rem'
+                    }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+                            <span style={{fontWeight: 600, color: 'var(--text-main)'}}>{server.loader}</span>
+                            <span>{server.version}</span>
+                        </div>
+                        <div style={{
+                            width: '4px',
+                            height: '4px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--text-muted)'
+                        }}></div>
+                        <div>Port <span
+                            style={{fontFamily: 'monospace', color: 'var(--text-main)'}}>{server.port}</span></div>
                     </div>
                 </div>
 
@@ -108,6 +163,64 @@ const ServerDetail: React.FC = () => {
             </div>
 
             <div style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '15px',
+                    marginBottom: '10px'
+                }}>
+                    <div className="card" style={{display: 'flex', alignItems: 'center', gap: '15px', padding: '15px'}}>
+                        <div style={{
+                            padding: '10px',
+                            borderRadius: '8px',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            color: '#3b82f6'
+                        }}>
+                            <Cpu size={24}/>
+                        </div>
+                        <div>
+                            <div style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>CPU Usage</div>
+                            <div style={{fontSize: '1.2rem', fontWeight: 600}}>
+                                {server.status === 'RUNNING' ? `${stats.cpu.toFixed(1)}%` : 'Offline'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card" style={{display: 'flex', alignItems: 'center', gap: '15px', padding: '15px'}}>
+                        <div style={{
+                            padding: '10px',
+                            borderRadius: '8px',
+                            background: 'rgba(168, 85, 247, 0.1)',
+                            color: '#a855f7'
+                        }}>
+                            <MemoryStick size={24}/>
+                        </div>
+                        <div>
+                            <div style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>RAM Usage</div>
+                            <div style={{fontSize: '1.2rem', fontWeight: 600}}>
+                                {server.status === 'RUNNING' ? `${formatBytes(stats.ram)} / ${server.ram}MB` : 'Offline'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card" style={{display: 'flex', alignItems: 'center', gap: '15px', padding: '15px'}}>
+                        <div style={{
+                            padding: '10px',
+                            borderRadius: '8px',
+                            background: 'rgba(234, 179, 8, 0.1)',
+                            color: '#eab308'
+                        }}>
+                            <HardDrive size={24}/>
+                        </div>
+                        <div>
+                            <div style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>Disk Usage</div>
+                            <div style={{fontSize: '1.2rem', fontWeight: 600}}>
+                                {formatBytes(stats.disk)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                     <h2 style={{margin: 0, fontSize: '1.2rem'}}>Console</h2>
                     <span style={{

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -16,6 +15,13 @@ import (
 	"os/signal"
 	"path/filepath"
 
+	"time"
+
+	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
@@ -38,9 +44,25 @@ func main() {
 	port := config.GetPort()
 	BaseURL = fmt.Sprintf("http://localhost:%d", port)
 
+	dashboardLoop := func() {
+		for {
+			serverID := handleDashboard()
+			if serverID == "" {
+				break
+			}
+			back := handleLogs(serverID)
+			if !back {
+				break
+			}
+		}
+	}
+
 	var rootCmd = &cobra.Command{
 		Use:   "naviger-cli",
 		Short: "CLI for Naviger Server Manager",
+		Run: func(cmd *cobra.Command, args []string) {
+			dashboardLoop()
+		},
 	}
 
 	// Server Commands
@@ -221,7 +243,16 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(serverCmd, backupCmd, portsCmd, loadersCmd, updateCmd)
+	// Dashboard Command
+	var dashboardCmd = &cobra.Command{
+		Use:   "dashboard",
+		Short: "View live server dashboard",
+		Run: func(cmd *cobra.Command, args []string) {
+			dashboardLoop()
+		},
+	}
+
+	rootCmd.AddCommand(serverCmd, backupCmd, portsCmd, loadersCmd, updateCmd, dashboardCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -407,7 +438,217 @@ func handleListBackups(id string) {
 	}
 }
 
-func handleLogs(id string) {
+type logModel struct {
+	sub       chan string
+	conn      *websocket.Conn
+	viewport  viewport.Model
+	textInput textinput.Model
+	err       error
+	ready     bool
+	serverID  string
+	server    *domain.Server
+	content   string
+	quitting  bool
+	back      bool
+}
+
+func initialLogModel(id string, conn *websocket.Conn, sub chan string) logModel {
+	ti := textinput.New()
+	ti.Placeholder = "Type a command..."
+	ti.Focus()
+	ti.CharLimit = 156
+	ti.Width = 20
+
+	return logModel{
+		sub:       sub,
+		conn:      conn,
+		textInput: ti,
+		serverID:  id,
+	}
+}
+
+func (m logModel) Init() tea.Cmd {
+	return tea.Batch(
+		textinput.Blink,
+		waitForLog(m.sub),
+		getServerDetails(m.serverID),
+	)
+}
+
+type logMsg string
+type errMsg2 error
+type serverDetailsMsg *domain.Server
+
+func waitForLog(sub chan string) tea.Cmd {
+	return func() tea.Msg {
+		if sub == nil {
+			return nil
+		}
+		msg, ok := <-sub
+		if !ok {
+			return nil
+		}
+		return logMsg(msg)
+	}
+}
+
+func getServerDetails(id string) tea.Cmd {
+	return func() tea.Msg {
+		resp, err := http.Get(BaseURL + "/servers/" + id)
+		if err != nil {
+			return errMsg2(err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			return errMsg2(fmt.Errorf("server error: %s", resp.Status))
+		}
+
+		var srv domain.Server
+		if err := json.NewDecoder(resp.Body).Decode(&srv); err != nil {
+			return errMsg2(err)
+		}
+		return serverDetailsMsg(&srv)
+	}
+}
+
+func (m logModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var (
+		tiCmd tea.Cmd
+		vpCmd tea.Cmd
+	)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyCtrlC:
+			m.quitting = true
+			return m, tea.Quit
+		case tea.KeyEsc:
+			m.back = true
+			return m, tea.Quit
+		case tea.KeyEnter:
+			if m.textInput.Value() != "" {
+				cmd := m.textInput.Value()
+				m.textInput.SetValue("")
+				if m.conn != nil {
+					_ = m.conn.WriteMessage(websocket.TextMessage, []byte(cmd+"\n"))
+				}
+			}
+		}
+
+	case tea.WindowSizeMsg:
+		// Server Info:   1 line content + 2 border = 3
+		// Footer:        2 lines content + 2 border = 4
+		// Console Border: 2 lines
+		// Total Chrome: 3 + 4 + 2 = 9 lines
+		headerHeight := 3
+		footerHeight := 4
+		verticalMarginHeight := headerHeight + footerHeight + 2
+
+		// Width Calculation:
+		// Screen Width
+		// - 2 (Margin Left)
+		// - 2 (Margin Right / Space for symmetry)
+		// - 2 (Border Left/Right)
+		// = Width - 6 for CONTENT
+		contentWidth := msg.Width - 6
+
+		if !m.ready {
+			m.viewport = viewport.New(contentWidth, msg.Height-verticalMarginHeight)
+			m.viewport.YPosition = headerHeight
+			m.ready = true
+		} else {
+			m.viewport.Width = contentWidth
+			m.viewport.Height = msg.Height - verticalMarginHeight
+		}
+
+	case logMsg:
+		m.content += string(msg) + "\n"
+		m.viewport.SetContent(m.content)
+		m.viewport.GotoBottom()
+		return m, waitForLog(m.sub)
+
+	case serverDetailsMsg:
+		m.server = msg
+
+	case errMsg2:
+		m.err = msg
+		return m, tea.Quit
+	}
+
+	m.textInput, tiCmd = m.textInput.Update(msg)
+	m.viewport, vpCmd = m.viewport.Update(msg)
+
+	return m, tea.Batch(tiCmd, vpCmd)
+}
+
+func (m logModel) View() string {
+	if !m.ready {
+		return "\n  Initializing..."
+	}
+
+	// 1. Server Info Header
+	serverInfoContent := ""
+	if m.server != nil {
+		statusColor := "160"
+		statusIcon := "🔴"
+		if m.server.Status == "RUNNING" {
+			statusColor = "42"
+			statusIcon = "🟢"
+		} else if m.server.Status == "STARTING" {
+			statusColor = "220"
+			statusIcon = "🟡"
+		}
+
+		titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("63")).Padding(0, 1)
+		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor))
+
+		serverInfoContent = fmt.Sprintf(
+			"%s  %s %s  ID: %s  Port: %d  Loader: %s %s  RAM: %d MB",
+			titleStyle.Render(m.server.Name),
+			statusIcon,
+			statusStyle.Render(m.server.Status),
+			m.server.ID,
+			m.server.Port,
+			m.server.Loader,
+			m.server.Version,
+			m.server.RAM,
+		)
+	} else {
+		serverInfoContent = "Loading server details..."
+	}
+
+	// Box Width = ContentWidth + 2 (Border)
+	boxWidth := m.viewport.Width + 2
+
+	serverInfoBox := baseStyle.
+		Width(boxWidth).
+		Align(lipgloss.Center).
+		Render(serverInfoContent)
+
+	// 2. Console (Viewport)
+	console := baseStyle.
+		Width(boxWidth).
+		// Height is determined by content (viewport) + border automatically
+		Render(m.viewport.View())
+
+	// 3. Footer
+	footerContent := fmt.Sprintf(
+		"→ %s\n%s",
+		m.textInput.View(),
+		lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Esc: back • Ctrl+C: quit"),
+	)
+
+	footer := baseStyle.
+		Width(boxWidth).
+		Align(lipgloss.Left).
+		Render(footerContent)
+
+	return lipgloss.JoinVertical(lipgloss.Center, serverInfoBox, console, footer)
+}
+
+func handleLogs(id string) bool {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
@@ -418,56 +659,40 @@ func handleLogs(id string) {
 	u.Scheme = "ws"
 	wsURL := fmt.Sprintf("%s/ws/servers/%s/console", u.String(), id)
 
-	fmt.Printf("Connecting to console of %s...\n", id)
-	c, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		log.Fatalf("Error connecting to WebSocket. Is the server running? Error: %v", err)
 	}
-	defer c.Close()
+	defer conn.Close()
 
-	done := make(chan struct{})
+	sub := make(chan string)
 
 	go func() {
-		defer close(done)
+		defer close(sub)
 		for {
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					fmt.Printf("Unexpected error reading message: %v", err)
-				}
-				fmt.Println("\nDisconnected from console.")
-				return
-			}
-			fmt.Println(string(message))
-		}
-	}()
-
-	go func() {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			input := scanner.Text()
-			err := c.WriteMessage(websocket.TextMessage, []byte(input+"\n"))
+			_, message, err := conn.ReadMessage()
 			if err != nil {
 				return
 			}
+			sub <- string(message)
 		}
 	}()
 
-	fmt.Println("Connected. Type commands and press Enter. Press Ctrl+C to exit.")
+	p := tea.NewProgram(
+		initialLogModel(id, conn, sub),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
 
-	for {
-		select {
-		case <-done:
-			return
-		case <-interrupt:
-			log.Println("Interrupt received, closing connection...")
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				log.Println("Error sending close message:", err)
-			}
-			return
-		}
+	m, err := p.Run()
+	if err != nil {
+		log.Fatalf("Alas, there's been an error: %v", err)
 	}
+
+	if logModel, ok := m.(logModel); ok {
+		return logModel.back
+	}
+	return false
 }
 
 func handleList() {
@@ -486,18 +711,41 @@ func handleList() {
 		log.Fatalf("Error reading response: %v", err)
 	}
 
-	fmt.Println("\n--- REMOTE SERVERS ---")
+	var (
+		headerStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252")).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).BorderForeground(lipgloss.Color("240"))
+		rowStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+		statusGreen  = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+		statusRed    = lipgloss.NewStyle().Foreground(lipgloss.Color("160"))
+		statusYellow = lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
+		statusBlue   = lipgloss.NewStyle().Foreground(lipgloss.Color("33"))
+	)
+
+	fmt.Println()
+	fmt.Printf("%s\n", headerStyle.Render(fmt.Sprintf("%-3s %-20s %-8s %-10s %-8s %-12s", "Sts", "Name", "ID", "Loader", "Ver", "Port")))
+
 	for _, s := range servers {
-		statusIcon := "🔴"
+		status := "🔴"
+		sStyle := statusRed
 		if s.Status == "RUNNING" {
-			statusIcon = "🟢"
+			status = "🟢"
+			sStyle = statusGreen
 		} else if s.Status == "STARTING" {
-			statusIcon = "🟡"
+			status = "🟡"
+			sStyle = statusYellow
+		} else if s.Status == "STOPPING" {
+			status = "🟠"
+			sStyle = statusRed
+		} else if s.Status == "CREATING" {
+			status = "�"
+			sStyle = statusBlue
 		}
 
-		fmt.Printf("%s [%s] %s (v%s)\n", statusIcon, s.ID, s.Name, s.Version)
-		fmt.Printf("      Port: %d | RAM: %dMB | Loader: %s\n", s.Port, s.RAM, s.Loader)
+		sIcon := sStyle.Render(status)
+		rest := rowStyle.Render(fmt.Sprintf("%-20s %-8s %-10s %-8s %-12d", s.Name, s.ID, s.Loader, s.Version, s.Port))
+
+		fmt.Printf("%s %s\n", sIcon, rest)
 	}
+	fmt.Println()
 }
 
 func handleCreate(name, version, loader string, ram int) {
@@ -571,35 +819,47 @@ func handleCreate(name, version, loader string, ram int) {
 	}
 }
 
-func handleStart(id string) {
+func startServer(id string) error {
 	reqURL := fmt.Sprintf("%s/servers/%s/start", BaseURL, id)
 	resp, err := http.Post(reqURL, "application/json", nil)
 	if err != nil {
-		log.Fatalf("Error connecting to Daemon: %v", err)
+		return fmt.Errorf("error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Start failed: %s", string(body))
+		return fmt.Errorf("start failed: %s", string(body))
 	}
+	return nil
+}
 
+func handleStart(id string) {
+	if err := startServer(id); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Println("Start command sent. The server will start in the background.")
 }
 
-func handleStop(id string) {
+func stopServer(id string) error {
 	reqURL := fmt.Sprintf("%s/servers/%s/stop", BaseURL, id)
 	resp, err := http.Post(reqURL, "application/json", nil)
 	if err != nil {
-		log.Fatalf("Error connecting to Daemon: %v", err)
+		return fmt.Errorf("error connecting to Daemon: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Stop failed: %s", string(body))
+		return fmt.Errorf("stop failed: %s", string(body))
 	}
+	return nil
+}
 
+func handleStop(id string) {
+	if err := stopServer(id); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Println("Stop command sent.")
 }
 
@@ -695,4 +955,325 @@ func handleSetPortRange(start, end int) {
 
 	fmt.Println("Port configuration updated successfully!")
 	fmt.Printf("New range: %d - %d\n", start, end)
+}
+
+var (
+	baseStyle = lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			MarginLeft(2)
+
+	headerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("255")).
+			Bold(true).
+			Align(lipgloss.Center)
+
+	subHeaderStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Align(lipgloss.Center)
+)
+
+type model struct {
+	table     table.Model
+	servers   []domain.Server
+	stats     map[string]domain.ServerStats
+	err       error
+	width     int
+	height    int
+	isLoading bool
+	message   string
+}
+
+type serverDataMsg struct {
+	servers []domain.Server
+	stats   map[string]domain.ServerStats
+}
+
+type errMsg error
+
+func handleDashboard() string {
+	columns := []table.Column{
+		{Title: "Sts", Width: 3},
+		{Title: "ID", Width: 8},
+		{Title: "Name", Width: 20},
+		{Title: "Port", Width: 6},
+		{Title: "Ver", Width: 8},
+		{Title: "Loader", Width: 10},
+		{Title: "CPU", Width: 8},
+		{Title: "RAM", Width: 15},
+		{Title: "Disk", Width: 10},
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithFocused(true),
+		table.WithHeight(10),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
+
+	m := model{
+		table:     t,
+		isLoading: true,
+		stats:     make(map[string]domain.ServerStats),
+	}
+
+	program := tea.NewProgram(m, tea.WithAltScreen(), tea.WithInput(os.Stdin), tea.WithOutput(os.Stdout))
+	finalModel, err := program.Run()
+	if err != nil {
+		fmt.Printf("Error running dashboard: %v", err)
+		os.Exit(1)
+	}
+
+	if m, ok := finalModel.(model); ok {
+		if m.err != nil {
+			if m.err.Error() == "quit" {
+				return ""
+			}
+		}
+
+		if m.message == "navigate_logs" {
+			selectedRow := m.table.SelectedRow()
+			if len(selectedRow) > 1 {
+				return selectedRow[1]
+			}
+		}
+	}
+
+	return ""
+}
+
+func (m model) Init() tea.Cmd {
+	return tea.Batch(
+		fetchDataCmd(),
+		tickCmd(),
+	)
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	varcmd := func() tea.Cmd { return nil }
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "ctrl+c", "esc":
+			m.err = fmt.Errorf("quit")
+			return m, tea.Quit
+		case "s":
+			selectedRow := m.table.SelectedRow()
+			if len(selectedRow) > 1 {
+				id := selectedRow[1]
+				// Find server status
+				var status string
+				for _, s := range m.servers {
+					if s.ID == id {
+						status = s.Status
+						break
+					}
+				}
+
+				if status == "RUNNING" || status == "STARTING" {
+					m.message = fmt.Sprintf("Server %s is already %s", id, status)
+				} else {
+					go startServer(id)
+					m.message = fmt.Sprintf("Starting server %s...", id)
+				}
+
+				return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+					return "clear_message"
+				})
+			}
+		case "x":
+			selectedRow := m.table.SelectedRow()
+			if len(selectedRow) > 1 {
+				id := selectedRow[1]
+				// Find server status
+				var status string
+				for _, s := range m.servers {
+					if s.ID == id {
+						status = s.Status
+						break
+					}
+				}
+
+				if status != "RUNNING" && status != "STARTING" {
+					m.message = fmt.Sprintf("Server %s is not running (Status: %s)", id, status)
+				} else {
+					go stopServer(id)
+					m.message = fmt.Sprintf("Stopping server %s...", id)
+				}
+
+				return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+					return "clear_message"
+				})
+			}
+		case "enter":
+			m.message = "navigate_logs"
+			return m, tea.Quit
+		case "clear_message":
+			m.message = ""
+			return m, nil
+		}
+	case string:
+		if msg == "clear_message" {
+			m.message = ""
+			return m, nil
+		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.table.SetWidth(msg.Width - 10)
+		m.table.SetHeight(msg.Height - 10)
+	case serverDataMsg:
+		m.isLoading = false
+		m.servers = msg.servers
+		m.stats = msg.stats
+		m.updateTable()
+		return m, nil
+	case tickMsg:
+		return m, tea.Batch(fetchDataCmd(), tickCmd())
+	case errMsg:
+		m.err = msg
+		return m, nil
+	}
+
+	m.table, cmd = m.table.Update(msg)
+	return m, tea.Batch(varcmd(), cmd)
+}
+
+func (m *model) updateTable() {
+	rows := []table.Row{}
+	for _, s := range m.servers {
+		status := "🔴"
+		if s.Status == "RUNNING" {
+			status = "🟢"
+		} else if s.Status == "STARTING" {
+			status = "🟡"
+		} else if s.Status == "STOPPING" {
+			status = "🟠"
+		} else if s.Status == "CREATING" {
+			status = "🔵"
+		}
+
+		cpu := "-"
+		ram := "-"
+		disk := "-"
+		if stat, ok := m.stats[s.ID]; ok && (s.Status == "RUNNING" || stat.Disk > 0) {
+			if s.Status == "RUNNING" {
+				cpu = fmt.Sprintf("%.1f%%", stat.CPU)
+				ram = fmt.Sprintf("%s / %dMB", formatBytesShort(int64(stat.RAM)), s.RAM)
+			}
+			disk = formatBytesShort(stat.Disk)
+		}
+
+		rows = append(rows, table.Row{
+			status,
+			s.ID,
+			s.Name,
+			fmt.Sprintf("%d", s.Port),
+			s.Version,
+			s.Loader,
+			cpu,
+			ram,
+			disk,
+		})
+	}
+	m.table.SetRows(rows)
+}
+
+func (m model) View() string {
+	if m.width == 0 {
+		return "Loading..."
+	}
+
+	title := headerStyle.Render("NAVIGER")
+	clock := subHeaderStyle.Render(time.Now().Format("Mon Jan 2 15:04:05"))
+
+	hostInfo := fmt.Sprintf("Daemon: %s  |  Servers: %d", BaseURL, len(m.servers))
+	headerBox := baseStyle.
+		Width(m.width-4).
+		Align(lipgloss.Center).
+		Padding(0, 1).
+		Render(lipgloss.JoinVertical(lipgloss.Center, title, clock, " ", hostInfo))
+
+	tableContainer := baseStyle.
+		Width(m.width - 4).
+		Height(m.height - 12).
+		Render(m.table.View())
+
+	statusLine := "↑/↓: navigate • s: start • x: stop • enter: logs • q: quit"
+	footerText := lipgloss.NewStyle().
+		MarginLeft(2).
+		Foreground(lipgloss.Color("240")).
+		Render(statusLine)
+
+	if m.message != "" {
+		footerText = fmt.Sprintf("%s\n%s",
+			lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("205")).Bold(true).Render(m.message),
+			footerText)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Center,
+		headerBox,
+		tableContainer,
+		footerText,
+	)
+}
+
+type tickMsg time.Time
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+func fetchDataCmd() tea.Cmd {
+	return func() tea.Msg {
+		serversResp, err := http.Get(BaseURL + "/servers")
+		if err != nil {
+			return errMsg(err)
+		}
+		defer serversResp.Body.Close()
+
+		var servers []domain.Server
+		if err := json.NewDecoder(serversResp.Body).Decode(&servers); err != nil {
+			return errMsg(err)
+		}
+
+		statsResp, err := http.Get(BaseURL + "/servers-stats")
+		var stats map[string]domain.ServerStats
+		if err == nil && statsResp.StatusCode == 200 {
+			defer statsResp.Body.Close()
+			_ = json.NewDecoder(statsResp.Body).Decode(&stats)
+		}
+
+		return serverDataMsg{servers: servers, stats: stats}
+	}
+}
+
+func formatBytesShort(bytes int64) string {
+	if bytes == 0 {
+		return "0B"
+	}
+	const k = 1024
+	sizes := []string{"B", "K", "M", "G", "T"}
+	i := 0
+	fBytes := float64(bytes)
+	for fBytes >= k && i < len(sizes)-1 {
+		fBytes /= k
+		i++
+	}
+	return fmt.Sprintf("%.1f%s", fBytes, sizes[i])
 }

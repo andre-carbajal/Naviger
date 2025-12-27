@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type {Backup, Server} from '../types';
+import type {Backup, Server, ServerStats} from '../types';
 
 const API_PORT = import.meta.env.DEV ? 23009 : 23008;
 export const WS_HOST = `localhost:${API_PORT}`;
@@ -30,6 +30,8 @@ export const api = {
     getLoaderVersions: (loader: string) => apiInstance.get<string[]>(`/loaders/${loader}/versions`),
     getServers: () => apiInstance.get<Server[]>('/servers'),
     getServer: (id: string) => apiInstance.get<Server>(`/servers/${id}`),
+    getServerStats: (id: string) => apiInstance.get<ServerStats>(`/servers/${id}/stats`),
+    getAllServerStats: () => apiInstance.get<Record<string, ServerStats>>('/servers-stats'),
     createServer: (data: Omit<Server, 'id' | 'status' | 'port'> & {
         requestId?: string
     }) => apiInstance.post<Server>('/servers', data),

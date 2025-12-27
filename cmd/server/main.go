@@ -61,6 +61,10 @@ func main() {
 		BackupManager: backupManager,
 	}
 
+	if err := supervisor.ResetRunningStates(); err != nil {
+		log.Printf("Warning: Failed to reset server states: %v", err)
+	}
+
 	apiServer := api.NewAPIServer(container)
 
 	listenAddr := fmt.Sprintf(":%d", config.GetPort())

@@ -18,3 +18,9 @@ export interface Backup {
     requestId?: string;
     progressMessage?: string;
 }
+
+export interface ServerStats {
+    cpu: number;
+    ram: number;
+    disk: number;
+}

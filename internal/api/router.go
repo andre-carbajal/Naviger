@@ -65,8 +65,10 @@ func (api *Server) Start(listenAddr string) error {
 	mux.HandleFunc("GET /loaders", api.handleGetLoaders)
 	mux.HandleFunc("GET /loaders/{name}/versions", api.handleGetLoaderVersions)
 	mux.HandleFunc("GET /servers", api.handleListServers)
+	mux.HandleFunc("GET /servers-stats", api.handleGetAllServerStats)
 	mux.HandleFunc("POST /servers", api.handleCreateServer)
 	mux.HandleFunc("GET /servers/{id}", api.handleGetServer)
+	mux.HandleFunc("GET /servers/{id}/stats", api.handleGetServerStats)
 	mux.HandleFunc("PUT /servers/{id}", api.handleUpdateServer)
 	mux.HandleFunc("DELETE /servers/{id}", api.handleDeleteServer)
 
@@ -255,6 +257,8 @@ func (api *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	api.HubManager.RemoveHub(id)
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -352,6 +356,34 @@ func (api *Server) handleStartServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte(`{"status": "started"}`))
+}
+
+func (api *Server) handleGetServerStats(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Missing ID", http.StatusBadRequest)
+		return
+	}
+
+	stats, err := api.Supervisor.GetServerStats(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+func (api *Server) handleGetAllServerStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := api.Supervisor.GetAllServerStats()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }
 
 func (api *Server) handleStopServer(w http.ResponseWriter, r *http.Request) {

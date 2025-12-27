@@ -1,17 +1,25 @@
-import React from 'react';
-import {Play, Square, Terminal, Trash2} from 'lucide-react';
+import {Copy, Cpu, HardDrive, MemoryStick, Play, Square, Terminal, Trash2} from 'lucide-react';
 import {Link} from 'react-router-dom';
-import type {Server} from '../types';
+import type {Server, ServerStats} from '../types';
 import {Button} from './ui/Button';
 
 interface ServerCardProps {
     server: Server;
+    stats?: ServerStats;
     onStart: (id: string) => void;
     onStop: (id: string) => void;
     onDelete: (id: string) => void;
 }
 
-const ServerCard: React.FC<ServerCardProps> = ({server, onStart, onStop, onDelete}) => {
+const ServerCard: React.FC<ServerCardProps> = ({server, stats, onStart, onStop, onDelete}) => {
+    const formatBytes = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
     if (server.status === 'CREATING') {
         return (
             <div className="card">
@@ -58,26 +66,94 @@ const ServerCard: React.FC<ServerCardProps> = ({server, onStart, onStop, onDelet
             <div className="card-header">
                 <div>
                     <h3 className="card-title">{server.name}</h3>
-                    <div className="text-sm" style={{color: 'var(--text-muted)'}}>{server.id}</div>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px'}}>
+                        <span style={{
+                            fontFamily: 'monospace',
+                            background: 'rgba(0,0,0,0.3)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontSize: '0.8rem',
+                            color: 'var(--text-muted)'
+                        }}>
+                            {server.id}
+                        </span>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(server.id);
+                            }}
+                            className="btn-secondary"
+                            style={{
+                                padding: '2px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                display: 'flex'
+                            }}
+                            title="Copy ID"
+                        >
+                            <Copy size={12}/>
+                        </button>
+                    </div>
                 </div>
                 <span className={`status-badge status-${server.status.toLowerCase()}`}>{server.status}</span>
             </div>
-            <div className="card-content card-stats">
-                <div className="stat-item">
-                    <span className="stat-label">Version</span>
-                    <span className="stat-value">{server.version}</span>
+            <div className="card-content">
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '15px',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.9rem',
+                    marginBottom: '15px'
+                }}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+                        <span style={{fontWeight: 600, color: 'var(--text-main)'}}>{server.loader}</span>
+                        <span>{server.version}</span>
+                    </div>
+                    <div style={{
+                        width: '4px',
+                        height: '4px',
+                        borderRadius: '50%',
+                        backgroundColor: 'var(--text-muted)'
+                    }}></div>
+                    <div>Port <span style={{fontFamily: 'monospace', color: 'var(--text-main)'}}>{server.port}</span>
+                    </div>
                 </div>
-                <div className="stat-item">
-                    <span className="stat-label">Loader</span>
-                    <span className="stat-value">{server.loader}</span>
-                </div>
-                <div className="stat-item">
-                    <span className="stat-label">Port</span>
-                    <span className="stat-value">{server.port}</span>
-                </div>
-                <div className="stat-item">
-                    <span className="stat-label">RAM</span>
-                    <span className="stat-value">{server.ram} MB</span>
+
+                {/* Stats Row */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '10px',
+                    padding: '10px',
+                    background: 'rgba(0,0,0,0.2)',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem'
+                }}>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)'}}>
+                            <Cpu size={14}/> CPU
+                        </div>
+                        <div style={{fontWeight: 600}}>
+                            {server.status === 'RUNNING' && stats ? `${stats.cpu.toFixed(1)}%` : '-'}
+                        </div>
+                    </div>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)'}}>
+                            <MemoryStick size={14}/> RAM
+                        </div>
+                        <div style={{fontWeight: 600}}>
+                            {server.status === 'RUNNING' && stats ? `${formatBytes(stats.ram)} / ${server.ram}MB` : '-'}
+                        </div>
+                    </div>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)'}}>
+                            <HardDrive size={14}/> Disk
+                        </div>
+                        <div style={{fontWeight: 600}}>
+                            {stats ? formatBytes(stats.disk) : '-'}
+                        </div>
+                    </div>
                 </div>
             </div>
             <div className="card-actions">
