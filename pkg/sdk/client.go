@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type Client struct {
@@ -34,7 +35,11 @@ func (c *Client) get(path string, target interface{}) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (%d): %s", resp.StatusCode, string(body))
+		msg := strings.TrimSpace(string(body))
+		if msg != "" {
+			return fmt.Errorf("error: %s", msg)
+		}
+		return fmt.Errorf("API error (%d)", resp.StatusCode)
 	}
 
 	return json.NewDecoder(resp.Body).Decode(target)
@@ -58,7 +63,11 @@ func (c *Client) post(path string, body interface{}, target interface{}) error {
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusCreated {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (%d): %s", resp.StatusCode, string(bodyBytes))
+		msg := strings.TrimSpace(string(bodyBytes))
+		if msg != "" {
+			return fmt.Errorf("error: %s", msg)
+		}
+		return fmt.Errorf("API error (%d)", resp.StatusCode)
 	}
 
 	if target != nil {
@@ -81,7 +90,11 @@ func (c *Client) delete(path string) error {
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (%d): %s", resp.StatusCode, string(body))
+		msg := strings.TrimSpace(string(body))
+		if msg != "" {
+			return fmt.Errorf("error: %s", msg)
+		}
+		return fmt.Errorf("API error (%d)", resp.StatusCode)
 	}
 	return nil
 }
@@ -110,7 +123,11 @@ func (c *Client) put(path string, body interface{}) error {
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (%d): %s", resp.StatusCode, string(bodyBytes))
+		msg := strings.TrimSpace(string(bodyBytes))
+		if msg != "" {
+			return fmt.Errorf("Error: %s", msg)
+		}
+		return fmt.Errorf("API error (%d)", resp.StatusCode)
 	}
 	return nil
 }
