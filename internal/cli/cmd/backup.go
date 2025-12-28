@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"naviger/internal/cli/ui"
 	"naviger/pkg/sdk"
 
 	"github.com/spf13/cobra"
@@ -11,6 +12,13 @@ import (
 var backupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Manage backups",
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			ui.RunBackupDashboard(Client)
+		} else {
+			cmd.Help()
+		}
+	},
 }
 
 var backupCreateCmd = &cobra.Command{

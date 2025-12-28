@@ -24,17 +24,19 @@ func (i serverListItem) Title() string       { return i.title }
 func (i serverListItem) Description() string { return i.description }
 
 type model struct {
-	list      list.Model
-	servers   []sdk.Server
-	stats     map[string]sdk.ServerStats
-	err       error
-	width     int
-	height    int
-	isLoading bool
-	message   string
-	client    *sdk.Client
-	wizard    tea.Model
-	mode      dashboardMode
+	list             list.Model
+	servers          []sdk.Server
+	stats            map[string]sdk.ServerStats
+	err              error
+	width            int
+	height           int
+	isLoading        bool
+	message          string
+	client           *sdk.Client
+	wizard           tea.Model
+	mode             dashboardMode
+	deleteServerID   string
+	deleteServerName string
 }
 
 type dashboardMode int
@@ -42,6 +44,7 @@ type dashboardMode int
 const (
 	ViewDashboard dashboardMode = iota
 	ViewWizard
+	ViewDeleteConfirm
 )
 
 type serverDataMsg struct {
@@ -134,6 +137,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = fmt.Errorf("quit")
 			return m, tea.Quit
 		case "ctrl+c", "esc":
+			if m.mode == ViewDeleteConfirm {
+				m.mode = ViewDashboard
+				m.message = "Deletion cancelled."
+				return m, nil
+			}
 			if m.list.FilterState() != list.Filtering {
 				m.err = fmt.Errorf("quit")
 				return m, tea.Quit
@@ -203,30 +211,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						break
 					}
 				}
-				m.message = fmt.Sprintf("Are you sure you want to delete server '%s' (%s)? (y/n)", name, id)
+				m.deleteServerID = id
+				m.deleteServerName = name
+				m.mode = ViewDeleteConfirm
 				return m, nil
 			}
-		case "y":
-			if m.message != "" && len(m.message) > 6 && m.message[:26] == "Are you sure you want to d" {
-				i := m.list.SelectedItem()
-				if i != nil {
-					itm := i.(serverListItem)
-					id := itm.id
-					go m.client.DeleteServer(id)
-					m.message = fmt.Sprintf("Deleting server %s...", id)
-					return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
-						return "clear_message"
-					})
-				}
-			}
-		case "n":
-			if m.message != "" && len(m.message) > 6 && m.message[:26] == "Are you sure you want to d" {
-				m.message = "Deletion cancelled."
-				return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
-					return "clear_message"
-				})
-			}
-
 		case "enter":
 			m.message = "navigate_logs"
 			return m, tea.Quit
@@ -256,6 +245,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(fetchDataCmd(m.client), tickCmd())
 	case errMsg:
 		m.err = msg
+		return m, nil
+	}
+
+	if m.mode == ViewDeleteConfirm {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "y", "enter":
+				go m.client.DeleteServer(m.deleteServerID)
+				m.message = fmt.Sprintf("Deleting server %s...", m.deleteServerName)
+				m.mode = ViewDashboard
+				return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+					return "clear_message"
+				})
+			case "n", "esc":
+				m.mode = ViewDashboard
+				m.message = "Deletion cancelled."
+				return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+					return "clear_message"
+				})
+			}
+		}
 		return m, nil
 	}
 
@@ -309,6 +320,21 @@ func (m *model) updateList() {
 func (m model) View() string {
 	if m.mode == ViewWizard {
 		return m.wizard.View()
+	}
+
+	if m.mode == ViewDeleteConfirm {
+		title := headerStyle.Width(m.width).Render("NAVIGER DASHBOARD")
+		header := headerStyle.Render("DELETE CONFIRMATION")
+		content := fmt.Sprintf("\nAre you sure you want to delete server:\n\n%s\n\n(y/n)",
+			lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true).Render(m.deleteServerName))
+
+		confirmBox := baseStyle.
+			Width(m.width-4).
+			Height(m.height-4).
+			Align(lipgloss.Center, lipgloss.Center).
+			Render(content)
+
+		return lipgloss.JoinVertical(lipgloss.Center, title, header, confirmBox)
 	}
 
 	if m.width == 0 {
