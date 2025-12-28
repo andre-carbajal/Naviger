@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"naviger/internal/cli/ui"
 	"naviger/pkg/sdk"
 
 	"github.com/google/uuid"
@@ -23,7 +24,15 @@ var serverCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new server",
 	Run: func(cmd *cobra.Command, args []string) {
-		handleCreate(createName, createVer, createLoader, createRam)
+		if createName != "" && createVer != "" && createLoader != "" && createRam != 0 {
+			handleCreate(createName, createVer, createLoader, createRam)
+			return
+		}
+
+		req, ok := ui.RunCreateWizard(Client)
+		if ok {
+			handleCreate(req.Name, req.Version, req.Loader, req.Ram)
+		}
 	},
 }
 
@@ -76,10 +85,6 @@ func init() {
 	serverCreateCmd.Flags().StringVar(&createVer, "version", "", "Minecraft version")
 	serverCreateCmd.Flags().StringVar(&createLoader, "loader", "", "Loader (vanilla, paper, etc.)")
 	serverCreateCmd.Flags().IntVar(&createRam, "ram", 0, "RAM in MB")
-	serverCreateCmd.MarkFlagRequired("name")
-	serverCreateCmd.MarkFlagRequired("version")
-	serverCreateCmd.MarkFlagRequired("loader")
-	serverCreateCmd.MarkFlagRequired("ram")
 
 	serverCmd.AddCommand(serverCreateCmd, serverListCmd, serverStartCmd, serverStopCmd, serverDeleteCmd, serverLogsCmd)
 	RootCmd.AddCommand(serverCmd)
@@ -108,7 +113,9 @@ func handleCreate(name, version, loader string, ram int) {
 		log.Printf("Warning: Could not connect to progress WebSocket: %v", err)
 		close(done)
 	} else {
-		defer c.Close()
+		defer func() {
+			_ = c.Close()
+		}()
 		go func() {
 			defer close(done)
 			for {
@@ -140,15 +147,7 @@ func handleCreate(name, version, loader string, ram int) {
 }
 
 func handleList() {
-	servers, err := Client.ListServers()
-	if err != nil {
-		log.Fatalf("Error listing servers: %v", err)
-	}
-
-	fmt.Println("Servers:")
-	for _, s := range servers {
-		fmt.Printf("- %s (%s) [%s] Port: %d\n", s.Name, s.ID, s.Status, s.Port)
-	}
+	ui.RunServerList(Client)
 }
 
 func handleStart(id string) {

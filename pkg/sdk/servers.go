@@ -42,6 +42,12 @@ func (c *Client) ListLoaders() ([]string, error) {
 	return loaders, err
 }
 
+func (c *Client) ListLoaderVersions(loader string) ([]string, error) {
+	var versions []string
+	err := c.get(fmt.Sprintf("/loaders/%s/versions", loader), &versions)
+	return versions, err
+}
+
 func (c *Client) CheckUpdates() (*UpdateInfo, error) {
 	var info UpdateInfo
 	err := c.get("/updates", &info)
