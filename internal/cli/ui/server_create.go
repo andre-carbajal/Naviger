@@ -112,7 +112,7 @@ func (m WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			items = append(items, item(l))
 		}
 		m.loaderList.SetItems(items)
-		m.loaderList.SetSize(m.width-4, m.height-10)
+		m.loaderList.SetSize(m.width-8, m.height-14)
 		m.step = StepLoader
 		return m, nil
 	case versionsMsg:
@@ -121,7 +121,7 @@ func (m WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			items = append(items, item(v))
 		}
 		m.versionList.SetItems(items)
-		m.versionList.SetSize(m.width-4, m.height-10)
+		m.versionList.SetSize(m.width-8, m.height-14)
 		m.step = StepVersion
 		m.versionList.ResetSelected()
 		return m, nil
@@ -219,7 +219,9 @@ func (m WizardModel) View() string {
 		return "Loading..."
 	}
 
-	header := headerStyle.Render("Create New Server")
+	title := headerStyle.Width(m.width).Render("CREATE NEW SERVER")
+
+	stepTitle := ""
 	content := ""
 
 	if m.err != nil {
@@ -228,15 +230,20 @@ func (m WizardModel) View() string {
 
 	switch m.step {
 	case StepName:
-		content += fmt.Sprintf("Enter Server Name:\n\n%s", m.nameInput.View())
+		stepTitle = "Enter Server Name"
+		content += fmt.Sprintf("\n%s", m.nameInput.View())
 	case StepLoader:
-		content += "Select Loader:\n\n" + m.loaderList.View()
+		stepTitle = "Select Loader"
+		content += "\n" + m.loaderList.View()
 	case StepVersion:
-		content += fmt.Sprintf("Select Version for %s:\n\n%s", m.selectedLoader, m.versionList.View())
+		stepTitle = fmt.Sprintf("Select Version for %s", m.selectedLoader)
+		content += "\n" + m.versionList.View()
 	case StepRAM:
-		content += fmt.Sprintf("Enter RAM (MB):\n\n%s", m.ramInput.View())
+		stepTitle = "Enter RAM (MB)"
+		content += fmt.Sprintf("\n%s", m.ramInput.View())
 	case StepConfirm:
-		content += fmt.Sprintf("Confirm Creation?\n\nName: %s\nLoader: %s\nVersion: %s\nRAM: %s MB\n\n(y/n)",
+		stepTitle = "Confirm Creation"
+		content += fmt.Sprintf("\nName: %s\nLoader: %s\nVersion: %s\nRAM: %s MB\n\n(y/n)",
 			m.nameInput.Value(), m.selectedLoader, m.selectedVersion, m.ramInput.Value())
 	}
 
@@ -244,14 +251,29 @@ func (m WizardModel) View() string {
 		content = fmt.Sprintf("\n\nCreating server '%s'...\nPlease wait.", m.nameInput.Value())
 	}
 
-	fullScreenStyle := lipgloss.NewStyle().
-		Width(m.width-2).
-		Height(m.height-2).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Align(lipgloss.Center, lipgloss.Center)
+	headerBox := baseStyle.
+		Width(m.width - 4).
+		Align(lipgloss.Center).
+		Padding(1).
+		Render(titleStyle.Render(stepTitle))
 
-	return fullScreenStyle.Render(lipgloss.JoinVertical(lipgloss.Center, header, content))
+	mainContainer := baseStyle.
+		Width(m.width - 4).
+		Height(m.height - 12).
+		Align(lipgloss.Center).
+		Render(content)
+
+	statusLine := "esc: back/cancel • enter: next"
+	footerBox := footerStyle.
+		Width(m.width - 4).
+		Render(statusLine)
+
+	return lipgloss.JoinVertical(lipgloss.Center,
+		title,
+		headerBox,
+		mainContainer,
+		footerBox,
+	)
 }
 
 type item string

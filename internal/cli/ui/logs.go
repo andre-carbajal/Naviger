@@ -14,13 +14,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var (
-	logBaseStyle = lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		MarginLeft(2)
-)
-
 type logModel struct {
 	sub       chan string
 	conn      *websocket.Conn
@@ -34,6 +27,8 @@ type logModel struct {
 	quitting  bool
 	back      bool
 	client    *sdk.Client
+	width     int
+	height    int
 }
 
 func initialLogModel(id string, conn *websocket.Conn, sub chan string, client *sdk.Client) logModel {
@@ -114,9 +109,11 @@ func (m logModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		headerHeight := 3
-		footerHeight := 4
-		verticalMarginHeight := headerHeight + footerHeight + 2
+		m.width = msg.Width
+		m.height = msg.Height
+
+		headerHeight := 16
+		verticalMarginHeight := headerHeight
 
 		contentWidth := msg.Width - 6
 
@@ -156,6 +153,8 @@ func (m logModel) View() string {
 		return "\n  Initializing..."
 	}
 
+	title := headerStyle.Width(m.width).Render("SEVER CONSOLE LOGS")
+
 	serverInfoContent := ""
 	if m.server != nil {
 		statusColor := "160"
@@ -168,14 +167,12 @@ func (m logModel) View() string {
 			statusIcon = "🟡"
 		}
 
-		titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("63")).Padding(0, 1)
 		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor))
 
 		serverInfoContent = fmt.Sprintf(
-			"%s  %s %s  ID: %s  Port: %d  Loader: %s %s  RAM: %d MB",
-			titleStyle.Render(m.server.Name),
+			"Server: %s %s  •  ID: %s  •  Port: %d\nLoader: %s %s  •  RAM: %d MB",
 			statusIcon,
-			statusStyle.Render(m.server.Status),
+			statusStyle.Render(m.server.Name),
 			m.server.ID,
 			m.server.Port,
 			m.server.Loader,
@@ -186,29 +183,53 @@ func (m logModel) View() string {
 		serverInfoContent = "Loading server details..."
 	}
 
-	boxWidth := m.viewport.Width + 2
-
-	serverInfoBox := logBaseStyle.
-		Width(boxWidth).
+	headerBox := baseStyle.
+		Width(m.width-4).
 		Align(lipgloss.Center).
+		Padding(0, 1).
 		Render(serverInfoContent)
 
-	console := logBaseStyle.
-		Width(boxWidth).
+	console := baseStyle.
+		Width(m.width - 4).
 		Render(m.viewport.View())
 
-	footerContent := fmt.Sprintf(
-		"→ %s\n%s",
-		m.textInput.View(),
-		lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Esc: back • Ctrl+C: quit"),
+	keys := []string{
+		keyStyle.Render("esc") + descStyle.Render(": back"),
+		keyStyle.Render("ctrl+c") + descStyle.Render(": quit"),
+	}
+	helpText := lipgloss.JoinHorizontal(lipgloss.Top, keys...)
+	helpText = ""
+	for i, k := range keys {
+		helpText += k
+		if i < len(keys)-1 {
+			helpText += lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(" • ")
+		}
+	}
+
+	inputLine := fmt.Sprintf("→ %s", m.textInput.View())
+
+	helpLine := lipgloss.NewStyle().
+		Width(m.width - 6).
+		Align(lipgloss.Center).
+		Render(helpText)
+
+	footerContent := lipgloss.JoinVertical(lipgloss.Left,
+		inputLine,
+		"\n",
+		helpLine,
 	)
 
-	footer := logBaseStyle.
-		Width(boxWidth).
+	footerBox := footerStyle.
+		Width(m.width - 4).
 		Align(lipgloss.Left).
 		Render(footerContent)
 
-	return lipgloss.JoinVertical(lipgloss.Center, serverInfoBox, console, footer)
+	return lipgloss.JoinVertical(lipgloss.Center,
+		title,
+		headerBox,
+		console,
+		footerBox,
+	)
 }
 
 func RunLogs(client *sdk.Client, id string) bool {

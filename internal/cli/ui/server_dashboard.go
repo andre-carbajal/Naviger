@@ -12,22 +12,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var (
-	baseStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			MarginLeft(2)
-
-	headerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("255")).
-			Bold(true).
-			Align(lipgloss.Center)
-)
-
 type serverListItem struct {
 	id          string
 	title       string
 	description string
+	statusColor lipgloss.Color
 }
 
 func (i serverListItem) FilterValue() string { return i.title + " " + i.description }
@@ -67,7 +56,9 @@ func RunServerDashboard(client *sdk.Client) string {
 	l.Title = "Servers"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.Styles.Title = headerStyle
+	l.Styles.Title = titleStyle
+	l.Styles.PaginationStyle = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
+	l.Styles.HelpStyle = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 
 	m := model{
 		list:      l,
@@ -275,15 +266,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *model) updateList() {
 	var items []list.Item
 	for _, s := range m.servers {
-		status := "🔴"
+		statusIcon := "🔴"
+		statusColor := lipgloss.Color("196")
 		if s.Status == "RUNNING" {
-			status = "🟢"
+			statusIcon = "🟢"
+			statusColor = lipgloss.Color("46")
 		} else if s.Status == "STARTING" {
-			status = "🟡"
+			statusIcon = "🟡"
+			statusColor = lipgloss.Color("226")
 		} else if s.Status == "STOPPING" {
-			status = "🟠"
+			statusIcon = "🟠"
+			statusColor = lipgloss.Color("208")
 		} else if s.Status == "CREATING" {
-			status = "🔵"
+			statusIcon = "🔵"
+			statusColor = lipgloss.Color("51")
 		}
 
 		cpu := "-"
@@ -295,14 +291,16 @@ func (m *model) updateList() {
 			disk = formatBytesShort(stat.Disk)
 		}
 
-		title := fmt.Sprintf("%s %s (%s)", status, s.Name, s.ID)
-		desc := fmt.Sprintf("Port: %d | Ver: %s | CPU: %s | RAM: %s | Disk: %s",
-			s.Port, s.Version, cpu, ram, disk)
+		title := fmt.Sprintf("%s %s", statusIcon, s.Name)
+
+		desc := fmt.Sprintf("ID: %s • Port: %d • Ver: %s • CPU: %s • RAM: %s • Disk: %s",
+			s.ID, s.Port, s.Version, cpu, ram, disk)
 
 		items = append(items, serverListItem{
 			id:          s.ID,
 			title:       title,
 			description: desc,
+			statusColor: statusColor,
 		})
 	}
 	m.list.SetItems(items)
@@ -317,7 +315,7 @@ func (m model) View() string {
 		return "Loading..."
 	}
 
-	title := headerStyle.Render("NAVIGER")
+	title := headerStyle.Width(m.width).Render("NAVIGER DASHBOARD")
 
 	var totalCPU float64
 	var totalRAM int64
@@ -328,39 +326,55 @@ func (m model) View() string {
 		totalDisk += stat.Disk
 	}
 
-	hostInfo := fmt.Sprintf("Daemon: %s  |  Servers: %d  |  CPU: %.1f%%  |  RAM: %s  |  Disk: %s",
+	statsContent := fmt.Sprintf("Daemon: %s\nServers: %d • CPU: %.1f%% • RAM: %s • Disk: %s",
 		m.client.BaseURL(),
 		len(m.servers),
 		totalCPU,
 		formatBytesShort(totalRAM),
 		formatBytesShort(totalDisk))
+
 	headerBox := baseStyle.
-		Width(m.width-4).
+		Width(m.width - 4).
 		Align(lipgloss.Center).
-		Padding(0, 1).
-		Render(lipgloss.JoinVertical(lipgloss.Center, title, " ", hostInfo))
+		Render(statsContent)
 
 	listContainer := baseStyle.
 		Width(m.width - 4).
 		Height(m.height - 12).
 		Render(m.list.View())
 
-	statusLine := "c: create • s: start • x: stop • d: delete • enter: logs • q/esc: quit"
-	footerText := lipgloss.NewStyle().
-		MarginLeft(2).
-		Foreground(lipgloss.Color("240")).
+	keys := []string{
+		keyStyle.Render("c") + descStyle.Render(": create"),
+		keyStyle.Render("s") + descStyle.Render(": start"),
+		keyStyle.Render("x") + descStyle.Render(": stop"),
+		keyStyle.Render("d") + descStyle.Render(": delete"),
+		keyStyle.Render("enter") + descStyle.Render(": logs"),
+		keyStyle.Render("q/esc") + descStyle.Render(": quit"),
+	}
+	statusLine := lipgloss.JoinHorizontal(lipgloss.Top, keys...)
+	statusLine = ""
+	for i, k := range keys {
+		statusLine += k
+		if i < len(keys)-1 {
+			statusLine += lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(" • ")
+		}
+	}
+
+	footerBox := footerStyle.
+		Width(m.width - 4).
 		Render(statusLine)
 
 	if m.message != "" {
-		footerText = fmt.Sprintf("%s\n%s",
+		footerBox = fmt.Sprintf("%s\n%s",
 			lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("205")).Bold(true).Render(m.message),
-			footerText)
+			footerBox)
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Center,
+		title,
 		headerBox,
 		listContainer,
-		footerText,
+		footerBox,
 	)
 }
 
