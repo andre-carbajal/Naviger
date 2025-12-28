@@ -14,6 +14,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var (
+	logBaseStyle = lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		MarginLeft(2)
+)
+
 type logModel struct {
 	sub       chan string
 	conn      *websocket.Conn
@@ -187,28 +194,24 @@ func (m logModel) View() string {
 		serverInfoContent = "Loading server details..."
 	}
 
-	// Box Width = ContentWidth + 2 (Border)
 	boxWidth := m.viewport.Width + 2
 
-	serverInfoBox := baseStyle.
+	serverInfoBox := logBaseStyle.
 		Width(boxWidth).
 		Align(lipgloss.Center).
 		Render(serverInfoContent)
 
-	// 2. Console (Viewport)
-	console := baseStyle.
+	console := logBaseStyle.
 		Width(boxWidth).
-		// Height is determined by content (viewport) + border automatically
 		Render(m.viewport.View())
 
-	// 3. Footer
 	footerContent := fmt.Sprintf(
 		"→ %s\n%s",
 		m.textInput.View(),
 		lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Esc: back • Ctrl+C: quit"),
 	)
 
-	footer := baseStyle.
+	footer := logBaseStyle.
 		Width(boxWidth).
 		Align(lipgloss.Left).
 		Render(footerContent)
@@ -227,7 +230,9 @@ func RunLogs(client *sdk.Client, id string) bool {
 
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
-		log.Fatalf("Error connecting to WebSocket. Is the server running? Error: %v", err)
+		fmt.Printf("Error connecting to logs: %v\nPress Enter to continue...", err)
+		fmt.Scanln()
+		return true
 	}
 	defer conn.Close()
 
@@ -252,7 +257,8 @@ func RunLogs(client *sdk.Client, id string) bool {
 
 	m, err := p.Run()
 	if err != nil {
-		log.Fatalf("Alas, there's been an error: %v", err)
+		log.Printf("Error running logs UI: %v", err)
+		return true
 	}
 
 	if logModel, ok := m.(logModel); ok {

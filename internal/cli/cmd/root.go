@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"naviger/internal/cli/ui"
 	"naviger/pkg/sdk"
 	"os"
 
@@ -20,7 +21,15 @@ var RootCmd = &cobra.Command{
 		Client = sdk.NewClient(BaseURL)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		RunDashboard()
+		for {
+			serverID := ui.RunServerDashboard(Client)
+			if serverID == "" {
+				break
+			}
+			if !ui.RunLogs(Client, serverID) {
+				break
+			}
+		}
 	},
 }
 

@@ -21,10 +21,6 @@ var (
 			Foreground(lipgloss.Color("255")).
 			Bold(true).
 			Align(lipgloss.Center)
-
-	subHeaderStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Align(lipgloss.Center)
 )
 
 type model struct {
@@ -37,7 +33,16 @@ type model struct {
 	isLoading bool
 	message   string
 	client    *sdk.Client
+	wizard    tea.Model
+	mode      dashboardMode
 }
+
+type dashboardMode int
+
+const (
+	ViewDashboard dashboardMode = iota
+	ViewWizard
+)
 
 type serverDataMsg struct {
 	servers []sdk.Server
@@ -46,7 +51,7 @@ type serverDataMsg struct {
 
 type errMsg error
 
-func RunDashboard(client *sdk.Client) string {
+func RunServerDashboard(client *sdk.Client) string {
 	columns := []table.Column{
 		{Title: "Sts", Width: 3},
 		{Title: "ID", Width: 8},
@@ -99,9 +104,11 @@ func RunDashboard(client *sdk.Client) string {
 		}
 
 		if m.message == "navigate_logs" {
-			selectedRow := m.table.SelectedRow()
-			if len(selectedRow) > 1 {
-				return selectedRow[1]
+			if m.mode == ViewDashboard {
+				selectedRow := m.table.SelectedRow()
+				if len(selectedRow) > 1 {
+					return selectedRow[1]
+				}
 			}
 		}
 	}
@@ -120,17 +127,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	varcmd := func() tea.Cmd { return nil }
 	var cmd tea.Cmd
 
+	if m.mode == ViewWizard {
+		var wCmd tea.Cmd
+		m.wizard, wCmd = m.wizard.Update(msg)
+
+		switch msg.(type) {
+		case WizardDoneMsg:
+			m.mode = ViewDashboard
+			m.message = "Server creation started!"
+			return m, tea.Batch(fetchDataCmd(m.client), tickCmd(), func() tea.Msg { return "clear_message" })
+		case WizardCancelMsg:
+			m.mode = ViewDashboard
+			m.message = "Server creation cancelled."
+			return m, tea.Batch(tickCmd(), func() tea.Msg { return "clear_message" })
+		case tea.WindowSizeMsg:
+		}
+
+		return m, wCmd
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c", "esc":
 			m.err = fmt.Errorf("quit")
 			return m, tea.Quit
+		case "c":
+			m.mode = ViewWizard
+			wm := NewWizardModel(m.client, m.width, m.height)
+			m.wizard = wm
+			return m, wm.Init()
 		case "s":
 			selectedRow := m.table.SelectedRow()
 			if len(selectedRow) > 1 {
 				id := selectedRow[1]
-				// Find server status
 				var status string
 				for _, s := range m.servers {
 					if s.ID == id {
@@ -154,7 +184,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selectedRow := m.table.SelectedRow()
 			if len(selectedRow) > 1 {
 				id := selectedRow[1]
-				// Find server status
 				var status string
 				for _, s := range m.servers {
 					if s.ID == id {
@@ -174,6 +203,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return "clear_message"
 				})
 			}
+		case "d":
+			selectedRow := m.table.SelectedRow()
+			if len(selectedRow) > 1 {
+				id := selectedRow[1]
+				var name string
+				for _, s := range m.servers {
+					if s.ID == id {
+						name = s.Name
+						break
+					}
+				}
+				m.message = fmt.Sprintf("Are you sure you want to delete server '%s' (%s)? (y/n)", name, id)
+				return m, nil
+			}
+		case "y":
+			if m.message != "" && len(m.message) > 6 && m.message[:26] == "Are you sure you want to d" {
+				selectedRow := m.table.SelectedRow()
+				if len(selectedRow) > 1 {
+					id := selectedRow[1]
+					go m.client.DeleteServer(id)
+					m.message = fmt.Sprintf("Deleting server %s...", id)
+					return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+						return "clear_message"
+					})
+				}
+			}
+		case "n":
+			if m.message != "" && len(m.message) > 6 && m.message[:26] == "Are you sure you want to d" {
+				m.message = "Deletion cancelled."
+				return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+					return "clear_message"
+				})
+			}
+
 		case "enter":
 			m.message = "navigate_logs"
 			return m, tea.Quit
@@ -191,6 +254,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.table.SetWidth(msg.Width - 10)
 		m.table.SetHeight(msg.Height - 10)
+		if m.mode == ViewWizard {
+		}
 	case serverDataMsg:
 		m.isLoading = false
 		m.servers = msg.servers
@@ -209,7 +274,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) updateTable() {
-	rows := []table.Row{}
+	var rows []table.Row
 	for _, s := range m.servers {
 		status := "🔴"
 		if s.Status == "RUNNING" {
@@ -225,11 +290,9 @@ func (m *model) updateTable() {
 		cpu := "-"
 		ram := "-"
 		disk := "-"
-		if stat, ok := m.stats[s.ID]; ok && (s.Status == "RUNNING" || stat.Disk > 0) {
-			if s.Status == "RUNNING" {
-				cpu = fmt.Sprintf("%.1f%%", stat.CPU)
-				ram = fmt.Sprintf("%s / %dMB", formatBytesShort(int64(stat.RAM)), s.RAM)
-			}
+		if stat, ok := m.stats[s.ID]; ok {
+			cpu = fmt.Sprintf("%.1f%%", stat.CPU)
+			ram = fmt.Sprintf("%s / %dMB", formatBytesShort(int64(stat.RAM)), s.RAM)
 			disk = formatBytesShort(stat.Disk)
 		}
 
@@ -249,26 +312,43 @@ func (m *model) updateTable() {
 }
 
 func (m model) View() string {
+	if m.mode == ViewWizard {
+		return m.wizard.View()
+	}
+
 	if m.width == 0 {
 		return "Loading..."
 	}
 
 	title := headerStyle.Render("NAVIGER")
-	clock := subHeaderStyle.Render(time.Now().Format("Mon Jan 2 15:04:05"))
 
-	hostInfo := fmt.Sprintf("Daemon: %s  |  Servers: %d", m.client.BaseURL(), len(m.servers))
+	var totalCPU float64
+	var totalRAM int64
+	var totalDisk int64
+	for _, stat := range m.stats {
+		totalCPU += stat.CPU
+		totalRAM += int64(stat.RAM)
+		totalDisk += stat.Disk
+	}
+
+	hostInfo := fmt.Sprintf("Daemon: %s  |  Servers: %d  |  CPU: %.1f%%  |  RAM: %s  |  Disk: %s",
+		m.client.BaseURL(),
+		len(m.servers),
+		totalCPU,
+		formatBytesShort(totalRAM),
+		formatBytesShort(totalDisk))
 	headerBox := baseStyle.
 		Width(m.width-4).
 		Align(lipgloss.Center).
 		Padding(0, 1).
-		Render(lipgloss.JoinVertical(lipgloss.Center, title, clock, " ", hostInfo))
+		Render(lipgloss.JoinVertical(lipgloss.Center, title, " ", hostInfo))
 
 	tableContainer := baseStyle.
 		Width(m.width - 4).
 		Height(m.height - 12).
 		Render(m.table.View())
 
-	statusLine := "↑/↓: navigate • s: start • x: stop • enter: logs • q: quit"
+	statusLine := "c: create • s: start • x: stop • d: delete • enter: logs • q/esc: quit"
 	footerText := lipgloss.NewStyle().
 		MarginLeft(2).
 		Foreground(lipgloss.Color("240")).
@@ -304,7 +384,6 @@ func fetchDataCmd(client *sdk.Client) tea.Cmd {
 
 		stats, err := client.GetServerStats()
 		if err != nil {
-			// It's okay if stats fail, we just don't show them
 			stats = make(map[string]sdk.ServerStats)
 		}
 
