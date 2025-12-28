@@ -6,7 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -23,8 +24,18 @@ var (
 			Align(lipgloss.Center)
 )
 
+type serverListItem struct {
+	id          string
+	title       string
+	description string
+}
+
+func (i serverListItem) FilterValue() string { return i.title + " " + i.description }
+func (i serverListItem) Title() string       { return i.title }
+func (i serverListItem) Description() string { return i.description }
+
 type model struct {
-	table     table.Model
+	list      list.Model
 	servers   []sdk.Server
 	stats     map[string]sdk.ServerStats
 	err       error
@@ -52,38 +63,14 @@ type serverDataMsg struct {
 type errMsg error
 
 func RunServerDashboard(client *sdk.Client) string {
-	columns := []table.Column{
-		{Title: "Sts", Width: 3},
-		{Title: "ID", Width: 8},
-		{Title: "Name", Width: 20},
-		{Title: "Port", Width: 6},
-		{Title: "Ver", Width: 8},
-		{Title: "Loader", Width: 10},
-		{Title: "CPU", Width: 8},
-		{Title: "RAM", Width: 15},
-		{Title: "Disk", Width: 10},
-	}
-
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithFocused(true),
-		table.WithHeight(10),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
+	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	l.Title = "Servers"
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false)
+	l.Styles.Title = headerStyle
 
 	m := model{
-		table:     t,
+		list:      l,
 		isLoading: true,
 		stats:     make(map[string]sdk.ServerStats),
 		client:    client,
@@ -105,9 +92,9 @@ func RunServerDashboard(client *sdk.Client) string {
 
 		if m.message == "navigate_logs" {
 			if m.mode == ViewDashboard {
-				selectedRow := m.table.SelectedRow()
-				if len(selectedRow) > 1 {
-					return selectedRow[1]
+				i := m.list.SelectedItem()
+				if i != nil {
+					return i.(serverListItem).id
 				}
 			}
 		}
@@ -148,19 +135,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.list.FilterState() == list.Filtering {
+			break
+		}
 		switch msg.String() {
-		case "q", "ctrl+c", "esc":
+		case "q":
 			m.err = fmt.Errorf("quit")
 			return m, tea.Quit
+		case "ctrl+c", "esc":
+			if m.list.FilterState() != list.Filtering {
+				m.err = fmt.Errorf("quit")
+				return m, tea.Quit
+			}
 		case "c":
 			m.mode = ViewWizard
 			wm := NewWizardModel(m.client, m.width, m.height)
 			m.wizard = wm
 			return m, wm.Init()
 		case "s":
-			selectedRow := m.table.SelectedRow()
-			if len(selectedRow) > 1 {
-				id := selectedRow[1]
+			i := m.list.SelectedItem()
+			if i != nil {
+				itm := i.(serverListItem)
+				id := itm.id
 				var status string
 				for _, s := range m.servers {
 					if s.ID == id {
@@ -181,9 +177,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				})
 			}
 		case "x":
-			selectedRow := m.table.SelectedRow()
-			if len(selectedRow) > 1 {
-				id := selectedRow[1]
+			i := m.list.SelectedItem()
+			if i != nil {
+				itm := i.(serverListItem)
+				id := itm.id
 				var status string
 				for _, s := range m.servers {
 					if s.ID == id {
@@ -204,9 +201,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				})
 			}
 		case "d":
-			selectedRow := m.table.SelectedRow()
-			if len(selectedRow) > 1 {
-				id := selectedRow[1]
+			i := m.list.SelectedItem()
+			if i != nil {
+				itm := i.(serverListItem)
+				id := itm.id
 				var name string
 				for _, s := range m.servers {
 					if s.ID == id {
@@ -219,9 +217,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "y":
 			if m.message != "" && len(m.message) > 6 && m.message[:26] == "Are you sure you want to d" {
-				selectedRow := m.table.SelectedRow()
-				if len(selectedRow) > 1 {
-					id := selectedRow[1]
+				i := m.list.SelectedItem()
+				if i != nil {
+					itm := i.(serverListItem)
+					id := itm.id
 					go m.client.DeleteServer(id)
 					m.message = fmt.Sprintf("Deleting server %s...", id)
 					return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
@@ -252,15 +251,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.table.SetWidth(msg.Width - 10)
-		m.table.SetHeight(msg.Height - 10)
+		m.list.SetWidth(msg.Width - 4)
+		m.list.SetHeight(msg.Height - 12)
 		if m.mode == ViewWizard {
 		}
 	case serverDataMsg:
 		m.isLoading = false
 		m.servers = msg.servers
 		m.stats = msg.stats
-		m.updateTable()
+		m.updateList()
 		return m, nil
 	case tickMsg:
 		return m, tea.Batch(fetchDataCmd(m.client), tickCmd())
@@ -269,12 +268,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.table, cmd = m.table.Update(msg)
+	m.list, cmd = m.list.Update(msg)
 	return m, tea.Batch(varcmd(), cmd)
 }
 
-func (m *model) updateTable() {
-	var rows []table.Row
+func (m *model) updateList() {
+	var items []list.Item
 	for _, s := range m.servers {
 		status := "🔴"
 		if s.Status == "RUNNING" {
@@ -296,19 +295,17 @@ func (m *model) updateTable() {
 			disk = formatBytesShort(stat.Disk)
 		}
 
-		rows = append(rows, table.Row{
-			status,
-			s.ID,
-			s.Name,
-			fmt.Sprintf("%d", s.Port),
-			s.Version,
-			s.Loader,
-			cpu,
-			ram,
-			disk,
+		title := fmt.Sprintf("%s %s (%s)", status, s.Name, s.ID)
+		desc := fmt.Sprintf("Port: %d | Ver: %s | CPU: %s | RAM: %s | Disk: %s",
+			s.Port, s.Version, cpu, ram, disk)
+
+		items = append(items, serverListItem{
+			id:          s.ID,
+			title:       title,
+			description: desc,
 		})
 	}
-	m.table.SetRows(rows)
+	m.list.SetItems(items)
 }
 
 func (m model) View() string {
@@ -343,10 +340,10 @@ func (m model) View() string {
 		Padding(0, 1).
 		Render(lipgloss.JoinVertical(lipgloss.Center, title, " ", hostInfo))
 
-	tableContainer := baseStyle.
+	listContainer := baseStyle.
 		Width(m.width - 4).
 		Height(m.height - 12).
-		Render(m.table.View())
+		Render(m.list.View())
 
 	statusLine := "c: create • s: start • x: stop • d: delete • enter: logs • q/esc: quit"
 	footerText := lipgloss.NewStyle().
@@ -362,7 +359,7 @@ func (m model) View() string {
 
 	return lipgloss.JoinVertical(lipgloss.Center,
 		headerBox,
-		tableContainer,
+		listContainer,
 		footerText,
 	)
 }
@@ -404,4 +401,8 @@ func formatBytesShort(bytes int64) string {
 		i++
 	}
 	return fmt.Sprintf("%.1f%s", fBytes, sizes[i])
+}
+
+func (m model) additionalKeyMap() []key.Binding {
+	return []key.Binding{}
 }

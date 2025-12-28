@@ -57,6 +57,7 @@ func (m logModel) Init() tea.Cmd {
 		textinput.Blink,
 		waitForLog(m.sub),
 		getServerDetails(m.client, m.serverID),
+		tickCmd(),
 	)
 }
 
@@ -113,20 +114,10 @@ func (m logModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		// Server Info:   1 line content + 2 border = 3
-		// Footer:        2 lines content + 2 border = 4
-		// Console Border: 2 lines
-		// Total Chrome: 3 + 4 + 2 = 9 lines
 		headerHeight := 3
 		footerHeight := 4
 		verticalMarginHeight := headerHeight + footerHeight + 2
 
-		// Width Calculation:
-		// Screen Width
-		// - 2 (Margin Left)
-		// - 2 (Margin Right / Space for symmetry)
-		// - 2 (Border Left/Right)
-		// = Width - 6 for CONTENT
 		contentWidth := msg.Width - 6
 
 		if !m.ready {
@@ -150,6 +141,8 @@ func (m logModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg2:
 		m.err = msg
 		return m, tea.Quit
+	case tickMsg:
+		return m, tea.Batch(getServerDetails(m.client, m.serverID), tickCmd())
 	}
 
 	m.textInput, tiCmd = m.textInput.Update(msg)
@@ -163,7 +156,6 @@ func (m logModel) View() string {
 		return "\n  Initializing..."
 	}
 
-	// 1. Server Info Header
 	serverInfoContent := ""
 	if m.server != nil {
 		statusColor := "160"
