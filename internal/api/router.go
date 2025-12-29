@@ -284,7 +284,7 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	progressChan := make(chan string)
+	progressChan := make(chan domain.ProgressEvent)
 	hubID := "progress"
 	if req.RequestID != "" {
 		hubID = req.RequestID
@@ -292,17 +292,9 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 	hub := api.HubManager.GetHub(hubID)
 
 	go func() {
-		progress := 0
-		for msg := range progressChan {
-			progress += 10
-			if progress > 90 {
-				progress = 90
-			}
-
-			event := domain.ProgressEvent{
-				ServerID: "new-server",
-				Message:  msg,
-				Progress: progress,
+		for event := range progressChan {
+			if event.ServerID == "" {
+				event.ServerID = "new-server"
 			}
 			jsonBytes, _ := json.Marshal(event)
 			hub.Broadcast(jsonBytes)

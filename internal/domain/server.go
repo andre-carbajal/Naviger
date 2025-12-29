@@ -19,9 +19,11 @@ type BackupInfo struct {
 }
 
 type ProgressEvent struct {
-	ServerID string `json:"serverId"`
-	Message  string `json:"message"`
-	Progress int    `json:"progress"`
+	ServerID     string  `json:"serverId"`
+	Message      string  `json:"message"`
+	Progress     float64 `json:"progress"`
+	CurrentBytes int64   `json:"currentBytes"`
+	TotalBytes   int64   `json:"totalBytes"`
 }
 
 type ServerStats struct {

@@ -78,17 +78,45 @@ export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
             try {
                 const msgData = JSON.parse(event.data);
 
-                if (msgData.progress === 100) {
+                if (msgData.message === "Server created successfully") {
                     ws.close();
                     removeCreatingServer(requestId);
                     fetchServers();
                 } else {
                     setServers(prev => prev.map(s => {
                         if (s.id === requestId) {
+                            const currentSteps = s.steps || [];
+                            let newSteps = [...currentSteps];
+                            const msg = msgData.message;
+                            const progress = msgData.progress;
+
+                            if (newSteps.length === 0 || newSteps[newSteps.length - 1].label !== msg) {
+                                if (newSteps.length > 0 && newSteps[newSteps.length - 1].state === 'running') {
+                                    newSteps[newSteps.length - 1].state = 'done';
+                                    newSteps[newSteps.length - 1].progress = undefined;
+                                }
+                                newSteps.push({
+                                    label: msg,
+                                    state: 'running',
+                                    progress: progress > 0 ? progress : undefined
+                                });
+                            } else {
+                                if (newSteps.length > 0) {
+                                    newSteps[newSteps.length - 1].progress = progress > 0 ? progress : undefined;
+                                }
+                            }
+
+                            if (progress === -1) {
+                                if (newSteps.length > 0) {
+                                    newSteps[newSteps.length - 1].state = 'failed';
+                                }
+                            }
+
                             return {
                                 ...s,
                                 progress: msgData.progress,
-                                progressMessage: msgData.message
+                                progressMessage: msgData.message,
+                                steps: newSteps
                             };
                         }
                         return s;
@@ -103,9 +131,18 @@ export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
             console.error("WebSocket error", e);
             setServers(prev => prev.map(s => {
                 if (s.id === requestId) {
+                    const currentSteps = s.steps || [];
+                    const newSteps = [...currentSteps];
+                    if (newSteps.length > 0) {
+                        newSteps[newSteps.length - 1].state = 'failed';
+                    } else {
+                        newSteps.push({label: 'Connection Error', state: 'failed'});
+                    }
+
                     return {
                         ...s,
-                        progressMessage: 'Error connecting to progress stream'
+                        progressMessage: 'Error connecting to progress stream',
+                        steps: newSteps
                     };
                 }
                 return s;

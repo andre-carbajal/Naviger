@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"naviger/internal/domain"
 	"net/http"
 	"os"
 	"os/exec"
@@ -93,9 +94,7 @@ func (l *NeoForgeLoader) getLoaderVersions(minecraftVersion string) ([]string, e
 	parts := strings.Split(minecraftVersion, ".")
 
 	if len(parts) >= 3 {
-		// Check if it's old versioning scheme (1.20.x or 1.21.x)
 		if parts[0] == "1" && (parts[1] == "20" || parts[1] == "21") {
-			// Old scheme: Minecraft 1.21.11 -> NeoForge versions starting with 21.11.
 			versionPrefix := parts[1] + "." + parts[2] + "."
 
 			for _, version := range response.Versions {
@@ -104,7 +103,6 @@ func (l *NeoForgeLoader) getLoaderVersions(minecraftVersion string) ([]string, e
 				}
 			}
 		} else {
-			// New scheme: Minecraft 26.1.0 -> NeoForge versions starting with 26.1.0.
 			versionPrefix := parts[0] + "." + parts[1] + "." + parts[2] + "."
 
 			for _, version := range response.Versions {
@@ -114,9 +112,7 @@ func (l *NeoForgeLoader) getLoaderVersions(minecraftVersion string) ([]string, e
 			}
 		}
 	} else if len(parts) == 2 {
-		// Handle cases like 1.20 or 26.1
 		if parts[0] == "1" && (parts[1] == "20" || parts[1] == "21") {
-			// Old scheme: 1.20 -> 20.0.
 			versionPrefix := parts[1] + ".0."
 
 			for _, version := range response.Versions {
@@ -125,7 +121,6 @@ func (l *NeoForgeLoader) getLoaderVersions(minecraftVersion string) ([]string, e
 				}
 			}
 		} else {
-			// New scheme: 26.1 -> 26.1.
 			versionPrefix := parts[0] + "." + parts[1] + "."
 
 			for _, version := range response.Versions {
@@ -140,9 +135,9 @@ func (l *NeoForgeLoader) getLoaderVersions(minecraftVersion string) ([]string, e
 	return loaderVersionsList, nil
 }
 
-func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan chan<- domain.ProgressEvent) error {
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Searching for version %s...", versionID)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Searching for version %s...", versionID)}
 	}
 	fmt.Printf("[NeoForge Loader] Searching for version %s...\n", versionID)
 
@@ -164,7 +159,7 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan cha
 	}
 
 	if progressChan != nil {
-		progressChan <- "Getting loader versions..."
+		progressChan <- domain.ProgressEvent{Message: "Getting loader versions..."}
 	}
 	loaderVersions, err := l.getLoaderVersions(versionID)
 	if err != nil {
@@ -180,17 +175,17 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan cha
 
 	installerPath := filepath.Join(destDir, "installer.jar")
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Downloading NeoForge installer.jar from: %s", downloadURL)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Downloading NeoForge installer.jar from: %s", downloadURL)}
 	}
 	fmt.Printf("Downloading NeoForge installer.jar from: %s\n", downloadURL)
 
-	err = l.downloadFile(downloadURL, installerPath)
+	err = l.downloadFile(downloadURL, installerPath, progressChan)
 	if err != nil {
 		return err
 	}
 
 	if progressChan != nil {
-		progressChan <- "Running NeoForge installer..."
+		progressChan <- domain.ProgressEvent{Message: "Running NeoForge installer..."}
 	}
 	fmt.Println("Running NeoForge installer...")
 	cmd := exec.Command("java", "-jar", "installer.jar", "--installServer")
@@ -203,7 +198,7 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan cha
 	}
 
 	if progressChan != nil {
-		progressChan <- "Cleaning up installation files..."
+		progressChan <- domain.ProgressEvent{Message: "Cleaning up installation files..."}
 	}
 	fmt.Println("Cleaning up installation files...")
 	if err := os.Remove(installerPath); err != nil {
@@ -211,13 +206,13 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan cha
 	}
 
 	if progressChan != nil {
-		progressChan <- "NeoForge installation completed."
+		progressChan <- domain.ProgressEvent{Message: "NeoForge installation completed.", Progress: 100}
 	}
 	fmt.Println("NeoForge installation completed.")
 	return nil
 }
 
-func (l *NeoForgeLoader) downloadFile(url string, dest string) error {
+func (l *NeoForgeLoader) downloadFile(url string, dest string, progressChan chan<- domain.ProgressEvent) error {
 	out, err := os.Create(dest)
 	if err != nil {
 		return err
@@ -234,6 +229,17 @@ func (l *NeoForgeLoader) downloadFile(url string, dest string) error {
 		return fmt.Errorf("error downloading file: status %d", resp.StatusCode)
 	}
 
-	_, err = io.Copy(out, resp.Body)
+	if progressChan != nil {
+		progressChan <- domain.ProgressEvent{Message: "Starting download..."}
+	}
+
+	progressReader := &ProgressReader{
+		Reader:       resp.Body,
+		Total:        resp.ContentLength,
+		ProgressChan: progressChan,
+		Message:      "Downloading NeoForge installer.jar",
+	}
+
+	_, err = io.Copy(out, progressReader)
 	return err
 }

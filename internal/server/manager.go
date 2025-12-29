@@ -25,7 +25,7 @@ func NewManager(serversPath string, store *storage.GormStore) *Manager {
 	}
 }
 
-func (m *Manager) CreateServer(name string, loaderType string, version string, ram int, progressChan chan<- string) (*domain.Server, error) {
+func (m *Manager) CreateServer(name string, loaderType string, version string, ram int, progressChan chan<- domain.ProgressEvent) (*domain.Server, error) {
 	if strings.ContainsAny(name, "\\/:*?\"<>|") || strings.Contains(name, "..") {
 		return nil, fmt.Errorf("invalid server name: contains forbidden characters")
 	}
@@ -34,7 +34,7 @@ func (m *Manager) CreateServer(name string, loaderType string, version string, r
 	serverDir := filepath.Join(m.ServersPath, id)
 
 	if progressChan != nil {
-		progressChan <- "Allocating port..."
+		progressChan <- domain.ProgressEvent{Message: "Allocating port..."}
 	}
 	assignedPort, err := AllocatePort(m.Store)
 	if err != nil {
@@ -57,7 +57,7 @@ func (m *Manager) CreateServer(name string, loaderType string, version string, r
 	}
 
 	if progressChan != nil {
-		progressChan <- "Configuring server..."
+		progressChan <- domain.ProgressEvent{Message: "Configuring server..."}
 	}
 	os.WriteFile(filepath.Join(serverDir, "eula.txt"), []byte("eula=true"), 0644)
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"naviger/internal/domain"
 	"net/http"
 	"os"
 	"os/exec"
@@ -67,9 +68,9 @@ func (l *ForgeLoader) getLoaderVersions(minecraftVersion string) ([]string, erro
 	return versions, nil
 }
 
-func (l *ForgeLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+func (l *ForgeLoader) Load(versionID string, destDir string, progressChan chan<- domain.ProgressEvent) error {
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Searching for version %s...", versionID)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Searching for version %s...", versionID)}
 	}
 	fmt.Printf("[Forge Loader] Searching for version %s...\n", versionID)
 
@@ -91,7 +92,7 @@ func (l *ForgeLoader) Load(versionID string, destDir string, progressChan chan<-
 	}
 
 	if progressChan != nil {
-		progressChan <- "Getting loader versions..."
+		progressChan <- domain.ProgressEvent{Message: "Getting loader versions..."}
 	}
 	loaderVersions, err := l.getLoaderVersions(versionID)
 	if err != nil {
@@ -107,17 +108,17 @@ func (l *ForgeLoader) Load(versionID string, destDir string, progressChan chan<-
 
 	installerPath := filepath.Join(destDir, "installer.jar")
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Downloading Forge installer.jar from: %s", downloadURL)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Downloading Forge installer.jar from: %s", downloadURL)}
 	}
 	fmt.Printf("Downloading Forge installer.jar from: %s\n", downloadURL)
 
-	err = l.downloadFile(downloadURL, installerPath)
+	err = l.downloadFile(downloadURL, installerPath, progressChan)
 	if err != nil {
 		return err
 	}
 
 	if progressChan != nil {
-		progressChan <- "Running Forge installer..."
+		progressChan <- domain.ProgressEvent{Message: "Running Forge installer..."}
 	}
 	fmt.Println("Running Forge installer...")
 	cmd := exec.Command("java", "-jar", "installer.jar", "--installServer")
@@ -130,7 +131,7 @@ func (l *ForgeLoader) Load(versionID string, destDir string, progressChan chan<-
 	}
 
 	if progressChan != nil {
-		progressChan <- "Cleaning up installation files..."
+		progressChan <- domain.ProgressEvent{Message: "Cleaning up installation files..."}
 	}
 	fmt.Println("Cleaning up installation files...")
 	if err := os.Remove(installerPath); err != nil {
@@ -138,13 +139,13 @@ func (l *ForgeLoader) Load(versionID string, destDir string, progressChan chan<-
 	}
 
 	if progressChan != nil {
-		progressChan <- "Forge installation completed."
+		progressChan <- domain.ProgressEvent{Message: "Forge installation completed.", Progress: 100}
 	}
 	fmt.Println("Forge installation completed.")
 	return nil
 }
 
-func (l *ForgeLoader) downloadFile(url string, dest string) error {
+func (l *ForgeLoader) downloadFile(url string, dest string, progressChan chan<- domain.ProgressEvent) error {
 	out, err := os.Create(dest)
 	if err != nil {
 		return err
@@ -161,6 +162,17 @@ func (l *ForgeLoader) downloadFile(url string, dest string) error {
 		return fmt.Errorf("error downloading file: status %d", resp.StatusCode)
 	}
 
-	_, err = io.Copy(out, resp.Body)
+	if progressChan != nil {
+		progressChan <- domain.ProgressEvent{Message: "Starting download..."}
+	}
+
+	progressReader := &ProgressReader{
+		Reader:       resp.Body,
+		Total:        resp.ContentLength,
+		ProgressChan: progressChan,
+		Message:      "Downloading Forge installer.jar",
+	}
+
+	_, err = io.Copy(out, progressReader)
 	return err
 }

@@ -4,12 +4,32 @@ import (
 	"fmt"
 	"naviger/pkg/sdk"
 	"strconv"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
+
+type StepState int
+
+const (
+	StepPending StepState = iota
+	StepRunning
+	StepDone
+	StepFailed
+)
+
+type ProgressStep struct {
+	Label       string
+	State       StepState
+	HasProgress bool
+}
 
 type WizardStep int
 
@@ -34,6 +54,11 @@ type WizardModel struct {
 	height          int
 	err             error
 	creating        bool
+	progress        progress.Model
+	spinner         spinner.Model
+	steps           []ProgressStep
+	progressConn    *websocket.Conn
+	requestID       string
 }
 
 type WizardDoneMsg struct{}
@@ -42,6 +67,8 @@ type WizardCancelMsg struct{}
 type loadersMsg []string
 type versionsMsg []string
 type serverCreatedMsg struct{}
+type progressMsg sdk.ProgressEvent
+type progressConnMsg *websocket.Conn
 
 func NewWizardModel(client *sdk.Client, width, height int) WizardModel {
 	tiName := textinput.New()
@@ -63,6 +90,11 @@ func NewWizardModel(client *sdk.Client, width, height int) WizardModel {
 	v.Title = "Select Version"
 	v.SetShowHelp(false)
 
+	prog := progress.New(progress.WithDefaultGradient())
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	return WizardModel{
 		client:      client,
 		step:        StepName,
@@ -72,20 +104,71 @@ func NewWizardModel(client *sdk.Client, width, height int) WizardModel {
 		versionList: v,
 		width:       width,
 		height:      height,
+		progress:    prog,
+		spinner:     s,
 	}
 }
 
 func (m WizardModel) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Batch(textinput.Blink, m.spinner.Tick)
 }
 
 func (m WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	if m.creating {
-		switch msg.(type) {
+		switch msg := msg.(type) {
 		case serverCreatedMsg:
-			return m, func() tea.Msg { return WizardDoneMsg{} }
+			return m, nil
+		case progressConnMsg:
+			m.progressConn = msg
+			return m, waitForProgress(m.progressConn)
+		case progressMsg:
+			if len(m.steps) == 0 {
+				m.steps = append(m.steps, ProgressStep{Label: msg.Message, State: StepRunning})
+			} else {
+				lastIdx := len(m.steps) - 1
+				if m.steps[lastIdx].Label != msg.Message {
+					m.steps[lastIdx].State = StepDone
+					m.steps = append(m.steps, ProgressStep{Label: msg.Message, State: StepRunning})
+				}
+			}
+
+			if msg.Message == "Server created successfully" {
+				m.steps[len(m.steps)-1].State = StepDone
+				time.Sleep(500 * time.Millisecond)
+				return m, func() tea.Msg { return WizardDoneMsg{} }
+			}
+			if msg.Progress == -1 {
+				m.creating = false
+				m.err = fmt.Errorf("server creation failed: %s", msg.Message)
+				if len(m.steps) > 0 {
+					m.steps[len(m.steps)-1].State = StepFailed
+				}
+				return m, nil
+			}
+
+			if msg.Progress > 0 {
+				m.steps[len(m.steps)-1].HasProgress = true
+				cmd = m.progress.SetPercent(msg.Progress / 100)
+				return m, tea.Batch(cmd, waitForProgress(m.progressConn))
+			}
+
+			m.steps[len(m.steps)-1].HasProgress = false
+
+			return m, waitForProgress(m.progressConn)
+
+		case spinner.TickMsg:
+			var cmd tea.Cmd
+			m.spinner, cmd = m.spinner.Update(msg)
+			return m, cmd
+
+		case tea.WindowSizeMsg:
+			m.width = msg.Width
+			m.height = msg.Height
+			m.progress.Width = msg.Width - 20
+			return m, nil
+
 		case errMsg:
 			m.creating = false
 			m.err = msg.(error)
@@ -98,6 +181,9 @@ func (m WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
+			if m.creating {
+				return m, nil
+			}
 			if m.step > StepName {
 				m.step--
 				return m, nil
@@ -199,12 +285,19 @@ func (m WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.String() == "y" || msg.Type == tea.KeyEnter {
 				ram, _ := strconv.Atoi(m.ramInput.Value())
 				m.creating = true
-				return m, createServer(m.client, sdk.CreateServerRequest{
-					Name:    m.nameInput.Value(),
-					Loader:  m.selectedLoader,
-					Version: m.selectedVersion,
-					Ram:     ram,
-				})
+				m.requestID = uuid.New().String()
+
+				return m, tea.Batch(
+					connectToProgress(m.client, m.requestID),
+					createServer(m.client, sdk.CreateServerRequest{
+						Name:      m.nameInput.Value(),
+						Loader:    m.selectedLoader,
+						Version:   m.selectedVersion,
+						Ram:       ram,
+						RequestID: m.requestID,
+					}),
+					m.progress.SetPercent(0),
+				)
 			} else if msg.String() == "n" {
 				return m, func() tea.Msg { return WizardCancelMsg{} }
 			}
@@ -248,7 +341,32 @@ func (m WizardModel) View() string {
 	}
 
 	if m.creating {
-		content = fmt.Sprintf("\n\nCreating server '%s'...\nPlease wait.", m.nameInput.Value())
+		content = fmt.Sprintf("\n\nCreating server '%s'...\n\n", m.nameInput.Value())
+
+		for _, step := range m.steps {
+			icon := " "
+			labelStyle := lipgloss.NewStyle()
+
+			switch step.State {
+			case StepDone:
+				icon = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Render("✓")
+				labelStyle = labelStyle.Foreground(lipgloss.Color("240"))
+			case StepRunning:
+				icon = m.spinner.View()
+				labelStyle = labelStyle.Bold(true)
+			case StepFailed:
+				icon = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render("✗")
+				labelStyle = labelStyle.Foreground(lipgloss.Color("196"))
+			default:
+				icon = "•"
+			}
+
+			content += fmt.Sprintf(" %s %s\n", icon, labelStyle.Render(step.Label))
+
+			if step.State == StepRunning && step.HasProgress {
+				content += fmt.Sprintf("   %s\n", m.progress.View())
+			}
+		}
 	}
 
 	headerBox := baseStyle.
@@ -309,5 +427,38 @@ func createServer(client *sdk.Client, req sdk.CreateServerRequest) tea.Cmd {
 			return errMsg(err)
 		}
 		return serverCreatedMsg{}
+	}
+}
+
+func connectToProgress(client *sdk.Client, id string) tea.Cmd {
+	return func() tea.Msg {
+		wsURL, err := client.GetWebSocketURL(fmt.Sprintf("/ws/progress/%s", id))
+		if err != nil {
+			return errMsg(err)
+		}
+
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		if err != nil {
+			time.Sleep(500 * time.Millisecond)
+			conn, _, err = websocket.DefaultDialer.Dial(wsURL, nil)
+			if err != nil {
+				return errMsg(err)
+			}
+		}
+		return progressConnMsg(conn)
+	}
+}
+
+func waitForProgress(conn *websocket.Conn) tea.Cmd {
+	return func() tea.Msg {
+		if conn == nil {
+			return nil
+		}
+		var event sdk.ProgressEvent
+		err := conn.ReadJSON(&event)
+		if err != nil {
+			return nil
+		}
+		return progressMsg(event)
 	}
 }

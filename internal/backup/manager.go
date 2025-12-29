@@ -204,12 +204,16 @@ func (m *Manager) CreateBackup(ctx context.Context, serverID string, backupName 
 
 			processedSize += info.Size()
 			if totalSize > 0 && progressChan != nil {
-				progress := int((float64(processedSize) / float64(totalSize)) * 100)
-				if progress > lastProgress {
-					lastProgress = progress
+				percentage := (float64(processedSize) / float64(totalSize)) * 100
+				progressInt := int(percentage)
+
+				if progressInt > lastProgress {
+					lastProgress = progressInt
 					progressChan <- domain.ProgressEvent{
-						Message:  fmt.Sprintf("Backing up... %d%%", progress),
-						Progress: progress,
+						Message:      fmt.Sprintf("Backing up... %d%%", progressInt),
+						Progress:     percentage,
+						CurrentBytes: processedSize,
+						TotalBytes:   totalSize,
 					}
 				}
 			}

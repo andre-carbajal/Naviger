@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"naviger/internal/domain"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -48,9 +49,9 @@ func (l *VanillaLoader) GetSupportedVersions() ([]string, error) {
 	return versions, nil
 }
 
-func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan<- domain.ProgressEvent) error {
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Searching for version %s...", versionID)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Searching for version %s...", versionID)}
 	}
 	fmt.Printf("[Vanilla Loader] Searching for version %s...\n", versionID)
 
@@ -71,7 +72,7 @@ func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan
 	}
 
 	if progressChan != nil {
-		progressChan <- "Getting version details..."
+		progressChan <- domain.ProgressEvent{Message: "Getting version details..."}
 	}
 	details, err := l.fetchVersionDetails(versionURL)
 	if err != nil {
@@ -80,17 +81,17 @@ func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan
 
 	finalPath := filepath.Join(destDir, "server.jar")
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Downloading server.jar from: %s", details.Downloads.Server.URL)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Downloading server.jar from: %s", details.Downloads.Server.URL)}
 	}
 	fmt.Printf("Downloading server.jar from: %s\n", details.Downloads.Server.URL)
 
-	err = l.downloadFile(details.Downloads.Server.URL, finalPath)
+	err = l.downloadFile(details.Downloads.Server.URL, finalPath, progressChan)
 	if err != nil {
 		return err
 	}
 
 	if progressChan != nil {
-		progressChan <- "Installation completed."
+		progressChan <- domain.ProgressEvent{Message: "Installation completed.", Progress: 100}
 	}
 	fmt.Println("Installation completed. The server is starting.")
 	return nil
@@ -122,7 +123,7 @@ func (l *VanillaLoader) fetchVersionDetails(url string) (*VersionDetails, error)
 	return &d, nil
 }
 
-func (l *VanillaLoader) downloadFile(url string, dest string) error {
+func (l *VanillaLoader) downloadFile(url string, dest string, progressChan chan<- domain.ProgressEvent) error {
 	out, err := os.Create(dest)
 	if err != nil {
 		return err
@@ -133,6 +134,18 @@ func (l *VanillaLoader) downloadFile(url string, dest string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	_, err = io.Copy(out, resp.Body)
+
+	if progressChan != nil {
+		progressChan <- domain.ProgressEvent{Message: "Starting download..."}
+	}
+
+	progressReader := &ProgressReader{
+		Reader:       resp.Body,
+		Total:        resp.ContentLength,
+		ProgressChan: progressChan,
+		Message:      "Downloading server.jar",
+	}
+
+	_, err = io.Copy(out, progressReader)
 	return err
 }

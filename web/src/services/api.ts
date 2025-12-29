@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type {Backup, Server, ServerStats} from '../types';
 
-const API_PORT = import.meta.env.DEV ? 23009 : 23008;
+const API_PORT = 23008;
 export const WS_HOST = `localhost:${API_PORT}`;
 
 const apiInstance = axios.create({

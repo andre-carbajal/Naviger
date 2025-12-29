@@ -8,6 +8,13 @@ export interface Server {
     status: "STOPPED" | "RUNNING" | "STARTING" | "STOPPING" | "CREATING";
     progress?: number;
     progressMessage?: string;
+    steps?: ProgressStep[];
+}
+
+export interface ProgressStep {
+    label: string;
+    state: 'pending' | 'running' | 'done' | 'failed';
+    progress?: number;
 }
 
 export interface Backup {

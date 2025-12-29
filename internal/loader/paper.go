@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"naviger/internal/domain"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,9 +31,9 @@ func (l *PaperLoader) GetSupportedVersions() ([]string, error) {
 	return l.getVersions()
 }
 
-func (l *PaperLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+func (l *PaperLoader) Load(versionID string, destDir string, progressChan chan<- domain.ProgressEvent) error {
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Searching for version %s...", versionID)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Searching for version %s...", versionID)}
 	}
 	fmt.Printf("[Paper Loader] Searching for version %s...\n", versionID)
 
@@ -54,7 +55,7 @@ func (l *PaperLoader) Load(versionID string, destDir string, progressChan chan<-
 	}
 
 	if progressChan != nil {
-		progressChan <- "Getting latest build..."
+		progressChan <- domain.ProgressEvent{Message: "Getting latest build..."}
 	}
 	latestBuild, err := l.getLatestBuild(versionID)
 	if err != nil {
@@ -66,17 +67,17 @@ func (l *PaperLoader) Load(versionID string, destDir string, progressChan chan<-
 
 	finalPath := filepath.Join(destDir, "server.jar")
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Downloading Paper server.jar from: %s", downloadURL)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Downloading Paper server.jar from: %s", downloadURL)}
 	}
 	fmt.Printf("Downloading Paper server.jar from: %s\n", downloadURL)
 
-	err = l.downloadFile(downloadURL, finalPath)
+	err = l.downloadFile(downloadURL, finalPath, progressChan)
 	if err != nil {
 		return err
 	}
 
 	if progressChan != nil {
-		progressChan <- "Installation completed."
+		progressChan <- domain.ProgressEvent{Message: "Installation completed.", Progress: 100}
 	}
 	fmt.Println("Installation completed. The server is starting.")
 	return nil
@@ -133,7 +134,7 @@ func (l *PaperLoader) getLatestBuild(version string) (int, error) {
 	return response.Builds[len(response.Builds)-1], nil
 }
 
-func (l *PaperLoader) downloadFile(url string, dest string) error {
+func (l *PaperLoader) downloadFile(url string, dest string, progressChan chan<- domain.ProgressEvent) error {
 	out, err := os.Create(dest)
 	if err != nil {
 		return err
@@ -150,6 +151,17 @@ func (l *PaperLoader) downloadFile(url string, dest string) error {
 		return fmt.Errorf("error downloading file: status %d", resp.StatusCode)
 	}
 
-	_, err = io.Copy(out, resp.Body)
+	if progressChan != nil {
+		progressChan <- domain.ProgressEvent{Message: "Starting download..."}
+	}
+
+	progressReader := &ProgressReader{
+		Reader:       resp.Body,
+		Total:        resp.ContentLength,
+		ProgressChan: progressChan,
+		Message:      "Downloading Paper server.jar",
+	}
+
+	_, err = io.Copy(out, progressReader)
 	return err
 }

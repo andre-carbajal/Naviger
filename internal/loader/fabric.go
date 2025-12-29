@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"naviger/internal/domain"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,11 +36,11 @@ func (l *FabricLoader) GetSupportedVersions() ([]string, error) {
 	return l.getGameVersions()
 }
 
-func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<- string) error {
+func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<- domain.ProgressEvent) error {
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Searching for version %s...", versionID)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Searching for version %s...", versionID)}
 	}
-	fmt.Printf("[Fabric Loader] Searching for version %s...\n", versionID)
+	fmt.Printf("Searching for version %s...\n", versionID)
 
 	gameVersions, err := l.getGameVersions()
 	if err != nil {
@@ -59,7 +60,7 @@ func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<
 	}
 
 	if progressChan != nil {
-		progressChan <- "Getting loader versions..."
+		progressChan <- domain.ProgressEvent{Message: "Getting loader versions..."}
 	}
 	loaderVersions, err := l.getLoaderVersions()
 	if err != nil {
@@ -71,7 +72,7 @@ func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<
 	latestLoaderVersion := loaderVersions[0]
 
 	if progressChan != nil {
-		progressChan <- "Getting latest installer version..."
+		progressChan <- domain.ProgressEvent{Message: "Getting latest installer version..."}
 	}
 	installerVersion, err := l.getLatestInstallerVersion()
 	if err != nil {
@@ -83,17 +84,17 @@ func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<
 
 	finalPath := filepath.Join(destDir, "server.jar")
 	if progressChan != nil {
-		progressChan <- fmt.Sprintf("Downloading Fabric server.jar from: %s", downloadURL)
+		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Downloading Fabric server.jar from: %s", downloadURL)}
 	}
 	fmt.Printf("Downloading Fabric server.jar from: %s\n", downloadURL)
 
-	err = l.downloadFile(downloadURL, finalPath)
+	err = l.downloadFile(downloadURL, finalPath, progressChan)
 	if err != nil {
 		return err
 	}
 
 	if progressChan != nil {
-		progressChan <- "Installation completed."
+		progressChan <- domain.ProgressEvent{Message: "Installation completed.", Progress: 100}
 	}
 	fmt.Println("Installation completed. The server is starting.")
 	return nil
@@ -174,7 +175,7 @@ func (l *FabricLoader) getLatestInstallerVersion() (string, error) {
 	return "", fmt.Errorf("no stable installer version found")
 }
 
-func (l *FabricLoader) downloadFile(url string, dest string) error {
+func (l *FabricLoader) downloadFile(url string, dest string, progressChan chan<- domain.ProgressEvent) error {
 	out, err := os.Create(dest)
 	if err != nil {
 		return err
@@ -191,6 +192,17 @@ func (l *FabricLoader) downloadFile(url string, dest string) error {
 		return fmt.Errorf("error downloading file: status %d", resp.StatusCode)
 	}
 
-	_, err = io.Copy(out, resp.Body)
+	if progressChan != nil {
+		progressChan <- domain.ProgressEvent{Message: "Starting download..."}
+	}
+
+	progressReader := &ProgressReader{
+		Reader:       resp.Body,
+		Total:        resp.ContentLength,
+		ProgressChan: progressChan,
+		Message:      "Downloading Fabric server.jar",
+	}
+
+	_, err = io.Copy(out, progressReader)
 	return err
 }

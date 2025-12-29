@@ -31,15 +31,59 @@ const ServerCard: React.FC<ServerCardProps> = ({server, stats, onStart, onStop, 
                     <span className="status-badge status-creating">CREATING</span>
                 </div>
                 <div className="card-content">
-                    <div className="p-4 text-center">
-                        <div className="mb-2">Creating server...</div>
-                        <div className="text-sm text-gray-500">{server.progressMessage || 'Initializing...'}</div>
-                        <div className="mt-4 w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700"
-                             style={{backgroundColor: '#374151', marginTop: '1rem'}}>
-                            <div
-                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
-                                style={{width: `${server.progress || 0}%`, backgroundColor: '#3b82f6'}}
-                            ></div>
+                    <div className="p-4">
+                        <div className="mb-4 text-center font-bold">Creating server...</div>
+                        <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                            {server.steps && server.steps.length > 0 ? (() => {
+                                const step = server.steps[server.steps.length - 1];
+                                return (
+                                    <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            fontSize: '0.9rem',
+                                            justifyContent: 'flex-start'
+                                        }}>
+                                            {step.state === 'running' && (
+                                                <span className="spinner-dot" style={{
+                                                    width: '8px',
+                                                    height: '8px',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: '#3b82f6',
+                                                    animation: 'pulse 1s infinite'
+                                                }}></span>
+                                            )}
+                                            {step.state === 'failed' && <span style={{color: '#f87171'}}>✗</span>}
+                                            {step.state === 'done' && <span style={{color: '#4ade80'}}>✓</span>}
+                                            <span style={{
+                                                color: 'var(--text-main)',
+                                                fontWeight: 600
+                                            }}>
+                                                {step.label}
+                                            </span>
+                                        </div>
+                                        {step.state === 'running' && step.progress !== undefined && (
+                                            <div style={{
+                                                marginTop: '8px',
+                                                height: '4px',
+                                                background: 'rgba(255,255,255,0.1)',
+                                                borderRadius: '2px',
+                                                overflow: 'hidden'
+                                            }}>
+                                                <div style={{
+                                                    height: '100%',
+                                                    background: '#3b82f6',
+                                                    width: `${step.progress}%`,
+                                                    transition: 'width 0.3s ease'
+                                                }}></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })() : (
+                                <div className="text-sm text-center text-gray-500">Initializing...</div>
+                            )}
                         </div>
                     </div>
                 </div>
