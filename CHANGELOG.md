@@ -1,4 +1,7 @@
-- Implement update check functionality and notification in the UI
-- Update WebSocket and API configurations for dynamic port handling
-- Cobra is now used on cli commands
-- The coupling between CLI Daemon was resolved
+- Update checking and UI notifications to inform users when new versions are available.
+- Updated WebSocket and API configurations to support dynamic port assignment.
+- CLI commands migrated to Cobra to improve the command-line experience and extensibility.
+- Coupling between the CLI and the daemon was resolved, allowing the CLI to function independently of the background service.
+- TUI interface in the CLI: Interactive modules were added for:
+  - Dashboard
+  - Backup
