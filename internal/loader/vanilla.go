@@ -53,7 +53,6 @@ func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Searching for version %s...", versionID)}
 	}
-	fmt.Printf("[Vanilla Loader] Searching for version %s...\n", versionID)
 
 	manifest, err := l.fetchManifest()
 	if err != nil {
@@ -83,7 +82,6 @@ func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Downloading server.jar from: %s", details.Downloads.Server.URL)}
 	}
-	fmt.Printf("Downloading server.jar from: %s\n", details.Downloads.Server.URL)
 
 	err = l.downloadFile(details.Downloads.Server.URL, finalPath, progressChan)
 	if err != nil {
@@ -93,7 +91,6 @@ func (l *VanillaLoader) Load(versionID string, destDir string, progressChan chan
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: "Installation completed.", Progress: 100}
 	}
-	fmt.Println("Installation completed. The server is starting.")
 	return nil
 }
 

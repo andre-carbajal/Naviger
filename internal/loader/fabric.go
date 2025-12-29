@@ -40,7 +40,6 @@ func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Searching for version %s...", versionID)}
 	}
-	fmt.Printf("Searching for version %s...\n", versionID)
 
 	gameVersions, err := l.getGameVersions()
 	if err != nil {
@@ -86,7 +85,6 @@ func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Downloading Fabric server.jar from: %s", downloadURL)}
 	}
-	fmt.Printf("Downloading Fabric server.jar from: %s\n", downloadURL)
 
 	err = l.downloadFile(downloadURL, finalPath, progressChan)
 	if err != nil {
@@ -96,7 +94,6 @@ func (l *FabricLoader) Load(versionID string, destDir string, progressChan chan<
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: "Installation completed.", Progress: 100}
 	}
-	fmt.Println("Installation completed. The server is starting.")
 	return nil
 }
 

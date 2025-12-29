@@ -35,7 +35,6 @@ func (l *PaperLoader) Load(versionID string, destDir string, progressChan chan<-
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Searching for version %s...", versionID)}
 	}
-	fmt.Printf("[Paper Loader] Searching for version %s...\n", versionID)
 
 	versions, err := l.getVersions()
 	if err != nil {
@@ -69,7 +68,6 @@ func (l *PaperLoader) Load(versionID string, destDir string, progressChan chan<-
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Downloading Paper server.jar from: %s", downloadURL)}
 	}
-	fmt.Printf("Downloading Paper server.jar from: %s\n", downloadURL)
 
 	err = l.downloadFile(downloadURL, finalPath, progressChan)
 	if err != nil {
@@ -79,7 +77,6 @@ func (l *PaperLoader) Load(versionID string, destDir string, progressChan chan<-
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: "Installation completed.", Progress: 100}
 	}
-	fmt.Println("Installation completed. The server is starting.")
 	return nil
 }
 

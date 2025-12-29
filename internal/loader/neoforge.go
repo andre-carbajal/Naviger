@@ -139,7 +139,6 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan cha
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Searching for version %s...", versionID)}
 	}
-	fmt.Printf("[NeoForge Loader] Searching for version %s...\n", versionID)
 
 	supportedVersions, err := l.GetSupportedVersions()
 	if err != nil {
@@ -177,7 +176,6 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan cha
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: fmt.Sprintf("Downloading NeoForge installer.jar from: %s", downloadURL)}
 	}
-	fmt.Printf("Downloading NeoForge installer.jar from: %s\n", downloadURL)
 
 	err = l.downloadFile(downloadURL, installerPath, progressChan)
 	if err != nil {
@@ -187,11 +185,10 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan cha
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: "Running NeoForge installer..."}
 	}
-	fmt.Println("Running NeoForge installer...")
 	cmd := exec.Command("java", "-jar", "installer.jar", "--installServer")
 	cmd.Dir = destDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error running NeoForge installer: %w", err)
@@ -200,7 +197,6 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan cha
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: "Cleaning up installation files..."}
 	}
-	fmt.Println("Cleaning up installation files...")
 	if err := os.Remove(installerPath); err != nil {
 		return fmt.Errorf("error removing installer: %w", err)
 	}
@@ -208,7 +204,6 @@ func (l *NeoForgeLoader) Load(versionID string, destDir string, progressChan cha
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: "NeoForge installation completed.", Progress: 100}
 	}
-	fmt.Println("NeoForge installation completed.")
 	return nil
 }
 
