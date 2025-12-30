@@ -41,15 +41,17 @@ func NewAPIServer(container *app.Container) *Server {
 	}
 }
 
-func (api *Server) Start(listenAddr string) error {
+func (api *Server) CreateHTTPServer(listenAddr string) *http.Server {
 	mux := http.NewServeMux()
 
 	ex, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("error getting executable path: %v", err)
+	var webDistPath string
+	if err == nil {
+		exPath := filepath.Dir(ex)
+		webDistPath = filepath.Join(exPath, "web_dist")
+	} else {
+		webDistPath = "web_dist"
 	}
-	exPath := filepath.Dir(ex)
-	webDistPath := filepath.Join(exPath, "web_dist")
 
 	fileServer := http.FileServer(http.Dir(webDistPath))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -94,8 +96,16 @@ func (api *Server) Start(listenAddr string) error {
 
 	handler := api.corsMiddleware(mux)
 
+	return &http.Server{
+		Addr:    listenAddr,
+		Handler: handler,
+	}
+}
+
+func (api *Server) Start(listenAddr string) error {
+	httpServer := api.CreateHTTPServer(listenAddr)
 	fmt.Printf("API listening on http://localhost%s\n", listenAddr)
-	return http.ListenAndServe(listenAddr, handler)
+	return httpServer.ListenAndServe()
 }
 
 func (api *Server) handleRestartDaemon(w http.ResponseWriter, r *http.Request) {
