@@ -8,6 +8,7 @@ const Settings: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
+    const [isRestarting, setIsRestarting] = useState(false);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -41,6 +42,26 @@ const Settings: React.FC = () => {
             console.error("Failed to save settings:", err);
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleRestart = async () => {
+        if (!confirm("Are you sure you want to restart the daemon? This will stop all running servers.")) {
+            return;
+        }
+        setIsRestarting(true);
+        try {
+            await api.restartDaemon();
+            alert("Daemon restart command sent. The page may lose connection briefly.");
+        } catch (err: any) {
+            if (err.code === "ERR_NETWORK" || err.message === "Network Error") {
+                 alert("Daemon restart command sent. The page may lose connection briefly.");
+            } else {
+                console.error("Failed to restart daemon:", err);
+                alert("Failed to restart daemon.");
+            }
+        } finally {
+            setIsRestarting(false);
         }
     };
 
@@ -85,6 +106,22 @@ const Settings: React.FC = () => {
                         disabled={!hasChanges || isSaving}
                     >
                         {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                </div>
+            </div>
+
+            <div className="card" style={{marginTop: '20px'}}>
+                <h2>System</h2>
+                <p>
+                    Manage the Naviger Daemon process.
+                </p>
+                <div>
+                    <Button
+                        variant="danger"
+                        onClick={handleRestart}
+                        disabled={isRestarting}
+                    >
+                        {isRestarting ? 'Restarting...' : 'Restart Daemon'}
                     </Button>
                 </div>
             </div>

@@ -48,12 +48,20 @@ var updateCmd = &cobra.Command{
 	},
 }
 
+var restartCmd = &cobra.Command{
+	Use:   "restart",
+	Short: "Restart the daemon",
+	Run: func(cmd *cobra.Command, args []string) {
+		handleRestartDaemon()
+	},
+}
+
 func init() {
 	portsSetCmd.Flags().IntVar(&portsStart, "start", 0, "Start port")
 	portsSetCmd.Flags().IntVar(&portsEnd, "end", 0, "End port")
 	portsCmd.AddCommand(portsGetCmd, portsSetCmd)
 
-	RootCmd.AddCommand(portsCmd, loadersCmd, updateCmd)
+	RootCmd.AddCommand(portsCmd, loadersCmd, updateCmd, restartCmd)
 }
 
 func handleGetPortRange() {
@@ -102,4 +110,11 @@ func handleCheckUpdates() {
 	} else {
 		fmt.Println("\nYou are up to date.")
 	}
+}
+
+func handleRestartDaemon() {
+	if err := Client.RestartDaemon(); err != nil {
+		log.Fatalf("Error restarting daemon: %v", err)
+	}
+	fmt.Println("Daemon restart command sent successfully.")
 }

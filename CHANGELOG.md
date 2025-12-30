@@ -1,7 +1,1 @@
-- Update checking and UI notifications to inform users when new versions are available.
-- Updated WebSocket and API configurations to support dynamic port assignment.
-- CLI commands migrated to Cobra to improve the command-line experience and extensibility.
-- Coupling between the CLI and the daemon was resolved, allowing the CLI to function independently of the background service.
-- TUI interface in the CLI: Interactive modules were added for:
-  - Dashboard
-  - Backup
+- Add daemon restart functionality with API endpoint and UI integration

@@ -85,6 +85,8 @@ func (api *Server) Start(listenAddr string) error {
 	mux.HandleFunc("GET /settings/port-range", api.handleGetPortRange)
 	mux.HandleFunc("PUT /settings/port-range", api.handleSetPortRange)
 
+	mux.HandleFunc("POST /system/restart", api.handleRestartDaemon)
+
 	mux.HandleFunc("GET /updates", api.handleCheckUpdates)
 
 	mux.HandleFunc("GET /ws/servers/{id}/console", api.handleConsole)
@@ -94,6 +96,14 @@ func (api *Server) Start(listenAddr string) error {
 
 	fmt.Printf("API listening on http://localhost%s\n", listenAddr)
 	return http.ListenAndServe(listenAddr, handler)
+}
+
+func (api *Server) handleRestartDaemon(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte(`{"status": "restarting"}`))
+	go func() {
+		os.Exit(0)
+	}()
 }
 
 func (api *Server) handleCheckUpdates(w http.ResponseWriter, r *http.Request) {

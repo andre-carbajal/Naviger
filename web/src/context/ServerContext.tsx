@@ -32,7 +32,7 @@ export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
             const response = await api.getServers();
             setServers(prevServers => {
                 const creatingServers = prevServers.filter(s => s.status === 'CREATING');
-                const newServers = response.data || [];
+                const newServers = Array.isArray(response.data) ? response.data : [];
 
                 const newServerIds = new Set(newServers.map(s => s.id));
                 const uniqueCreating = creatingServers.filter(s => !newServerIds.has(s.id));

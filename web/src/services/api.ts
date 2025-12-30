@@ -65,4 +65,5 @@ export const api = {
         update_available: boolean;
         release_url: string;
     }>('/updates'),
+    restartDaemon: () => apiInstance.post('/system/restart'),
 };
