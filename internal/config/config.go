@@ -67,8 +67,13 @@ func createDefaultConfig(configPath, configDir string) (*Config, error) {
 	return &cfg, nil
 }
 
+func IsDev() bool {
+	val := os.Getenv("NAVIGER_DEV")
+	return val == "true" || val == "1"
+}
+
 func GetPort() int {
-	if os.Getenv("NAVIGER_DEV") == "true" || os.Getenv("NAVIGER_DEV") == "1" {
+	if IsDev() {
 		return devPort
 	}
 	return defaultPort

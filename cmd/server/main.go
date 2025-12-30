@@ -23,7 +23,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error getting user config directory: %v", err)
 	}
-	configDir := filepath.Join(userConfigDir, "naviger")
+	appName := "naviger"
+	if config.IsDev() {
+		appName = "naviger-dev"
+	}
+	configDir := filepath.Join(userConfigDir, appName)
 
 	cfg, err := config.LoadConfig(configDir)
 	if err != nil {
