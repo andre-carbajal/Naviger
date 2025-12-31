@@ -7,6 +7,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"sync"
+	"syscall"
+	"time"
+
 	"naviger/internal/api"
 	"naviger/internal/app"
 	"naviger/internal/backup"
@@ -16,12 +24,6 @@ import (
 	"naviger/internal/server"
 	"naviger/internal/storage"
 	"naviger/internal/ws"
-	"net/http"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"syscall"
-	"time"
 
 	"github.com/emersion/go-autostart"
 	"github.com/getlantern/systray"
@@ -50,21 +52,18 @@ func runDesktop() {
 
 func onReady() {
 	systray.SetTooltip("Naviger Daemon")
-
 	if len(iconData) > 0 {
 		systray.SetIcon(iconData)
-	} else {
-		log.Println("Warning: No icon data loaded")
 	}
 
 	mStatus := systray.AddMenuItem("Status: Running", "Current status")
 	mStatus.Disable()
-
 	systray.AddSeparator()
-
-	mOpenUI := systray.AddMenuItem("Open Web UI", "Open dashboard in browser")
-	mRestart := systray.AddMenuItem("Restart Daemon", "Restart the server")
-	mStartLogin := systray.AddMenuItem("Start at Login", "Run on startup")
+	mOpenUI := systray.AddMenuItem("Open Web UI", "Open dashboard")
+	mRestart := systray.AddMenuItem("Restart Daemon", "Reload configuration and restart server")
+	mStartLogin := systray.AddMenuItemCheckbox("Start at Login", "Run on startup", false)
+	systray.AddSeparator()
+	mQuit := systray.AddMenuItem("Exit", "Quit application")
 
 	executable, err := os.Executable()
 	var appAutoStart *autostart.App
@@ -74,64 +73,65 @@ func onReady() {
 			DisplayName: "Naviger Daemon",
 			Exec:        []string{executable},
 		}
-
 		if appAutoStart.IsEnabled() {
 			mStartLogin.Check()
-		} else {
-			mStartLogin.Uncheck()
 		}
 	} else {
-		log.Printf("Error getting executable path for autostart: %v", err)
+		log.Printf("Error getting executable: %v", err)
 		mStartLogin.Disable()
 	}
 
-	systray.AddSeparator()
+	var ctx context.Context
+	var cancel context.CancelFunc
+	var wg sync.WaitGroup
 
-	mExit := systray.AddMenuItem("Exit", "Quit the application")
+	startService := func() {
+		ctx, cancel = context.WithCancel(context.Background())
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			startDaemonService(ctx)
+		}()
+		mStatus.SetTitle("Status: Running")
+	}
 
-	daemonStop := make(chan bool)
-	go startDaemonService(daemonStop)
+	startService()
 
 	go func() {
 		for {
 			select {
 			case <-mOpenUI.ClickedCh:
-				_ = browser.OpenURL("http://localhost:5173")
-			case <-mRestart.ClickedCh:
-				log.Println("Restarting daemon...")
-				select {
-				case daemonStop <- true:
-				case <-time.After(1 * time.Second):
-					log.Println("Timeout waiting for daemon to stop")
-				}
+				port := config.GetPort()
+				_ = browser.OpenURL(fmt.Sprintf("http://localhost:%d", port))
 
-				time.Sleep(500 * time.Millisecond)
-				daemonStop = make(chan bool)
-				go startDaemonService(daemonStop)
+			case <-mRestart.ClickedCh:
+				mStatus.SetTitle("Status: Restarting...")
+				log.Println("Reiniciando servicio...")
+
+				cancel()
+				wg.Wait()
+
+				startService()
+				log.Println("Servicio reiniciado.")
+
 			case <-mStartLogin.ClickedCh:
 				if appAutoStart == nil {
 					continue
 				}
 				if mStartLogin.Checked() {
-					if err := appAutoStart.Disable(); err != nil {
-						log.Printf("Error disabling autostart: %v", err)
-					} else {
+					if err := appAutoStart.Disable(); err == nil {
 						mStartLogin.Uncheck()
-						log.Println("Start at Login disabled")
 					}
 				} else {
-					if err := appAutoStart.Enable(); err != nil {
-						log.Printf("Error enabling autostart: %v", err)
-					} else {
+					if err := appAutoStart.Enable(); err == nil {
 						mStartLogin.Check()
-						log.Println("Start at Login enabled")
 					}
 				}
-			case <-mExit.ClickedCh:
-				select {
-				case daemonStop <- true:
-				case <-time.After(1 * time.Second):
-				}
+
+			case <-mQuit.ClickedCh:
+				mStatus.SetTitle("Status: Stopping...")
+				cancel()
+				wg.Wait()
 				systray.Quit()
 				return
 			}
@@ -140,30 +140,35 @@ func onReady() {
 }
 
 func onExit() {
-	log.Println("Exiting...")
+	log.Println("Application exited.")
 }
 
 func runHeadless() {
-	stopChan := make(chan bool)
-	go startDaemonService(stopChan)
+	log.Println("Running in headless mode...")
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
+	go startDaemonService(ctx)
+
 	<-sigs
-	log.Println("Received signal, shutting down...")
-	stopChan <- true
+	log.Println("Signal received, shutting down...")
+	cancel()
+
 	time.Sleep(1 * time.Second)
 }
 
-func startDaemonService(stopChan chan bool) {
+func startDaemonService(ctx context.Context) {
 	fmt.Println("Starting Naviger Daemon...")
 
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Printf("Error getting user config directory: %v", err)
+		log.Printf("Error getting config dir: %v", err)
 		return
 	}
+
 	appName := "naviger"
 	if config.IsDev() {
 		appName = "naviger-dev"
@@ -172,25 +177,17 @@ func startDaemonService(stopChan chan bool) {
 
 	cfg, err := config.LoadConfig(configDir)
 	if err != nil {
-		log.Printf("Error loading configuration: %v", err)
+		log.Printf("Error loading config: %v", err)
 		return
 	}
 
-	fmt.Printf("Using database: %s\n", cfg.DatabasePath)
-	fmt.Printf("Using servers directory: %s\n", cfg.ServersPath)
-	fmt.Printf("Using Java runtimes directory: %s\n", cfg.RuntimesPath)
-	fmt.Printf("Using backups directory: %s\n", cfg.BackupsPath)
-
 	for _, path := range []string{cfg.ServersPath, cfg.BackupsPath, cfg.RuntimesPath} {
-		if err := os.MkdirAll(path, 0755); err != nil {
-			log.Printf("Fatal: Could not create directory '%s': %v", path, err)
-			return
-		}
+		_ = os.MkdirAll(path, 0755)
 	}
 
 	store, err := storage.NewGormStore(cfg.DatabasePath)
 	if err != nil {
-		log.Printf("Fatal: Could not connect to DB: %v", err)
+		log.Printf("Fatal DB Error: %v", err)
 		return
 	}
 
@@ -210,31 +207,31 @@ func startDaemonService(stopChan chan bool) {
 	}
 
 	if err := supervisor.ResetRunningStates(); err != nil {
-		log.Printf("Warning: Failed to reset server states: %v", err)
+		log.Printf("Warning resetting states: %v", err)
 	}
 
 	apiServer := api.NewAPIServer(container)
-
 	listenAddr := fmt.Sprintf(":%d", config.GetPort())
-	fmt.Printf("API Server listening on %s\n", listenAddr)
 
 	httpServer := apiServer.CreateHTTPServer(listenAddr)
 
 	go func() {
+		log.Printf("API Listening on %s", listenAddr)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Printf("API Error: %v", err)
+			log.Printf("HTTP Server Error: %v", err)
 		}
 	}()
 
-	<-stopChan
-	fmt.Println("Shutting down server...")
+	<-ctx.Done()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	log.Println("Shutting down HTTP server...")
 
-	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown: %v", err)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP Shutdown error: %v", err)
 	}
 
-	fmt.Println("Server exiting")
+	log.Println("Daemon stopped cleanly.")
 }
