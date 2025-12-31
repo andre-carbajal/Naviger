@@ -1,1 +1,1 @@
-- Add daemon restart functionality with API endpoint and UI integration
+- Implement headless and desktop mode.
