@@ -13,22 +13,29 @@ OutputBaseFilename=Naviger-{#MyAppVersion}-windows
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=admin
+CloseApplications=force
 
 [Files]
 Source: "dist\naviger-server.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\naviger-cli.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "cmd\server\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\web_dist\*"; DestDir: "{app}\web_dist"; Flags: ignoreversion recursesubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName} Server"; Filename: "{app}\naviger-server.exe"
-Name: "{group}\Naviger Web UI"; Filename: "http://localhost:23008"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\naviger-server.exe"; IconFilename: "{app}\icon.ico"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\naviger-server.exe"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Registry]
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath('{app}')
 
 [Run]
-Filename: "{app}\naviger-server.exe"; Description: "Iniciar el servidor de Naviger"; Flags: postinstall nowait skipifsilent
-Filename: "http://localhost:23008"; Description: "Abrir la interfaz web (localhost:23008)"; Flags: postinstall shellexec skipifsilent
+Filename: "{app}\naviger-server.exe"; Description: "Start Naviger"; Flags: postinstall nowait skipifsilent
+
+[UninstallRun]
+Filename: "taskkill"; Parameters: "/IM naviger-server.exe /F"; Flags: runhidden; StatusMsg: "Stopping Naviger..."
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\web_dist"

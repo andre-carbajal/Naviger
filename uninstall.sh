@@ -81,8 +81,22 @@ if [ "$OS_TYPE" = "linux" ]; then
       echo "Reloading systemd daemon..."
       systemctl daemon-reload || true
     fi
+
+    # Also check for user service just in case
+    if sudo -u "$REAL_USER" systemctl --user is-active --quiet naviger 2>/dev/null; then
+        echo "Stopping user service..."
+        sudo -u "$REAL_USER" systemctl --user stop naviger || true
+        sudo -u "$REAL_USER" systemctl --user disable naviger || true
+    fi
   else
     echo "systemctl not found; skipping systemd cleanup."
+  fi
+
+  # Remove desktop entry if it exists
+  DESKTOP_FILE="/home/$REAL_USER/.local/share/applications/naviger.desktop"
+  if [ -f "$DESKTOP_FILE" ]; then
+      echo "Removing desktop entry..."
+      rm -f "$DESKTOP_FILE"
   fi
 
 elif [ "$OS_TYPE" = "macos" ]; then
@@ -106,6 +120,19 @@ elif [ "$OS_TYPE" = "macos" ]; then
     rm -f "$PLIST_FILE"
   else
     echo "No launchd agent plist found at $PLIST_FILE"
+  fi
+
+  # Remove App Bundle if installed in Applications
+  APP_PATH="/Applications/Naviger.app"
+  if [ -d "$APP_PATH" ]; then
+      echo "Removing Naviger.app from Applications..."
+      rm -rf "$APP_PATH"
+  fi
+
+  USER_APP_PATH="$USER_HOME/Applications/Naviger.app"
+  if [ -d "$USER_APP_PATH" ]; then
+      echo "Removing Naviger.app from user Applications..."
+      rm -rf "$USER_APP_PATH"
   fi
 fi
 
@@ -140,4 +167,3 @@ fi
 echo "Uninstall complete."
 
 exit 0
-

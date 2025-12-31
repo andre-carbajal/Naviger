@@ -48,7 +48,18 @@ func (api *Server) CreateHTTPServer(listenAddr string) *http.Server {
 	var webDistPath string
 	if err == nil {
 		exPath := filepath.Dir(ex)
-		webDistPath = filepath.Join(exPath, "web_dist")
+
+		path1 := filepath.Join(exPath, "web_dist")
+		if _, err := os.Stat(path1); err == nil {
+			webDistPath = path1
+		} else {
+			path2 := filepath.Join(filepath.Dir(exPath), "Resources", "web_dist")
+			if _, err := os.Stat(path2); err == nil {
+				webDistPath = path2
+			} else {
+				webDistPath = "web_dist"
+			}
+		}
 	} else {
 		webDistPath = "web_dist"
 	}

@@ -1,16 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	_ "embed"
+	"encoding/binary"
 	"errors"
 	"flag"
 	"fmt"
+	"image/png"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -31,7 +35,10 @@ import (
 )
 
 //go:embed icon.png
-var iconData []byte
+var iconPngData []byte
+
+//go:embed icon.ico
+var iconIcoData []byte
 
 var headless bool
 
@@ -52,8 +59,10 @@ func runDesktop() {
 
 func onReady() {
 	systray.SetTooltip("Naviger Daemon")
-	if len(iconData) > 0 {
-		systray.SetIcon(iconData)
+	if runtime.GOOS == "windows" {
+		systray.SetIcon(iconIcoData)
+	} else {
+		systray.SetIcon(iconPngData)
 	}
 
 	mStatus := systray.AddMenuItem("Status: Running", "Current status")
@@ -234,4 +243,50 @@ func startDaemonService(ctx context.Context) {
 	}
 
 	log.Println("Daemon stopped cleanly.")
+}
+
+func pngToIco(pngData []byte) ([]byte, error) {
+	cfg, err := png.DecodeConfig(bytes.NewReader(pngData))
+	if err != nil {
+		return nil, err
+	}
+
+	// ICO Header: Reserved(2) + Type(2) + Count(2)
+	header := []byte{0, 0, 1, 0, 1, 0}
+
+	// Image Entry: W(1) + H(1) + Colors(1) + Res(1) + Planes(2) + BPP(2) + Size(4) + Offset(4)
+	entry := make([]byte, 16)
+
+	w := cfg.Width
+	if w >= 256 {
+		w = 0
+	}
+	entry[0] = byte(w)
+
+	h := cfg.Height
+	if h >= 256 {
+		h = 0
+	}
+	entry[1] = byte(h)
+
+	// Colors = 0, Reserved = 0
+
+	// Planes = 1
+	entry[4] = 1
+
+	// BPP = 32
+	entry[6] = 32
+
+	// Size
+	binary.LittleEndian.PutUint32(entry[8:], uint32(len(pngData)))
+
+	// Offset = 6 (header) + 16 (entry) = 22
+	binary.LittleEndian.PutUint32(entry[12:], 22)
+
+	var buf bytes.Buffer
+	buf.Write(header)
+	buf.Write(entry)
+	buf.Write(pngData)
+
+	return buf.Bytes(), nil
 }

@@ -38,21 +38,29 @@ fi
 
 echo "Detected System: ${OS} (${ARCH}) -> Asset: ${ASSET_SUFFIX}"
 
+# Ask for installation mode
+echo "Select installation mode:"
+echo "1) Headless (Service/Daemon)"
+echo "2) Desktop (App/Shortcut)"
+read -p "Enter choice [1-2]: " INSTALL_MODE
+
+if [ "$INSTALL_MODE" != "1" ] && [ "$INSTALL_MODE" != "2" ]; then
+    echo "Invalid choice. Exiting."
+    exit 1
+fi
+
 # Check for dependencies
 command -v curl >/dev/null 2>&1 || { echo >&2 "curl is required but not installed. Aborting."; exit 1; }
 command -v unzip >/dev/null 2>&1 || { echo >&2 "unzip is required but not installed. Aborting."; exit 1; }
 
-# Check for root privileges
-if [ "$EUID" -ne 0 ]; then
-  echo "Please run as root (sudo ./install.sh)"
+# Check for root privileges if installing as service or to system dirs
+if [ "$INSTALL_MODE" = "1" ] && [ "$EUID" -ne 0 ]; then
+  echo "Please run as root (sudo ./install.sh) for Headless installation."
   exit 1
 fi
 
 # Determine actual user
 REAL_USER="${SUDO_USER:-$USER}"
-if [ "$REAL_USER" = "root" ]; then
-    echo "Warning: Installing as root user. It is recommended to run via sudo from a regular user account."
-fi
 
 # Define paths
 INSTALL_DIR="/opt/naviger"
@@ -63,7 +71,7 @@ echo "Checking for existing installation..."
 if [ "$OS_TYPE" = "linux" ]; then
     if systemctl is-active --quiet naviger; then
         echo "Stopping existing Naviger service..."
-        systemctl stop naviger
+        sudo systemctl stop naviger
     fi
 elif [ "$OS_TYPE" = "macos" ]; then
     if [ "$REAL_USER" = "root" ]; then
@@ -86,7 +94,7 @@ fi
 # Clean up previous installation
 if [ -d "$INSTALL_DIR" ]; then
     echo "Removing previous installation at ${INSTALL_DIR}..."
-    rm -rf "${INSTALL_DIR}"
+    sudo rm -rf "${INSTALL_DIR}"
 fi
 
 # Fetch latest version
@@ -119,40 +127,48 @@ fi
 echo "Extracting..."
 unzip -q "${TMP_DIR}/${ASSET_NAME}" -d "${TMP_DIR}/extracted"
 
-echo "Stopping existing services to allow update..."
-if [ "$OS_TYPE" = "linux" ]; then
-    systemctl stop naviger 2>/dev/null || true
-elif [ "$OS_TYPE" = "macos" ]; then
-    USER_HOME=$(eval echo "~${REAL_USER}")
-    PLIST_FILE="$USER_HOME/Library/LaunchAgents/com.naviger.server.plist"
-    if [ -f "$PLIST_FILE" ]; then
-        sudo -u "$REAL_USER" launchctl unload "$PLIST_FILE" 2>/dev/null || true
+# Installation Logic
+if [ "$INSTALL_MODE" = "1" ]; then
+    # HEADLESS MODE
+    echo "Installing Headless Mode..."
+
+    sudo mkdir -p "${INSTALL_DIR}"
+    sudo rm -rf "${INSTALL_DIR}/*"
+
+    # Check if extracted content is inside a folder (common with zips) or flat
+    if [ -d "${TMP_DIR}/extracted/Naviger.app" ]; then
+         # macOS app bundle case - we need the binary inside
+         sudo cp -r "${TMP_DIR}/extracted/Naviger.app/Contents/MacOS/Naviger" "${INSTALL_DIR}/naviger-server"
+         # Also copy web_dist if it exists inside Resources or MacOS
+         if [ -d "${TMP_DIR}/extracted/Naviger.app/Contents/MacOS/web_dist" ]; then
+             sudo cp -r "${TMP_DIR}/extracted/Naviger.app/Contents/MacOS/web_dist" "${INSTALL_DIR}/"
+         fi
+    else
+         sudo cp -r "${TMP_DIR}/extracted/"* "${INSTALL_DIR}/"
     fi
-fi
 
-echo "Installing Naviger to ${INSTALL_DIR}..."
-mkdir -p "${INSTALL_DIR}"
-rm -rf "${INSTALL_DIR}/*"
-cp -r "${TMP_DIR}/extracted/"* "${INSTALL_DIR}/"
+    # Ensure CLI is installed if it was outside the app bundle
+    if [ -f "${TMP_DIR}/extracted/naviger-cli" ]; then
+        sudo cp "${TMP_DIR}/extracted/naviger-cli" "${INSTALL_DIR}/"
+    fi
 
-# Cleanup
-rm -rf "${TMP_DIR}"
+    # Cleanup
+    rm -rf "${TMP_DIR}"
 
-# Set permissions
-chmod +x "${INSTALL_DIR}/naviger-server"
-chmod +x "${INSTALL_DIR}/naviger-cli"
-chown -R "$REAL_USER" "$INSTALL_DIR"
+    # Set permissions
+    sudo chmod +x "${INSTALL_DIR}/naviger-server"
+    if [ -f "${INSTALL_DIR}/naviger-cli" ]; then
+        sudo chmod +x "${INSTALL_DIR}/naviger-cli"
+        sudo ln -sf "${INSTALL_DIR}/naviger-cli" "${BIN_DIR}/naviger-cli"
+    fi
+    sudo chown -R "$REAL_USER" "$INSTALL_DIR"
 
-echo "Creating symlinks..."
-ln -sf "${INSTALL_DIR}/naviger-cli" "${BIN_DIR}/naviger-cli"
-ln -sf "${INSTALL_DIR}/naviger-server" "${BIN_DIR}/naviger-server"
+    # Service Configuration
+    if [ "$OS_TYPE" = "linux" ]; then
+        SERVICE_FILE="/etc/systemd/system/naviger.service"
+        echo "Setting up systemd service..."
 
-# Service Configuration
-if [ "$OS_TYPE" = "linux" ]; then
-    SERVICE_FILE="/etc/systemd/system/naviger.service"
-    echo "Setting up systemd service..."
-
-    cat > "${SERVICE_FILE}" <<EOF
+        sudo bash -c "cat > ${SERVICE_FILE}" <<EOF
 [Unit]
 Description=Naviger Server Daemon
 After=network.target
@@ -160,7 +176,7 @@ After=network.target
 [Service]
 Type=simple
 User=$REAL_USER
-ExecStart=${INSTALL_DIR}/naviger-server
+ExecStart=${INSTALL_DIR}/naviger-server --headless
 WorkingDirectory=${INSTALL_DIR}
 Restart=on-failure
 RestartSec=5s
@@ -169,30 +185,30 @@ RestartSec=5s
 WantedBy=multi-user.target
 EOF
 
-    echo "Reloading systemd daemon..."
-    systemctl daemon-reload
-    echo "Enabling and starting naviger service..."
-    systemctl enable naviger
-    systemctl start naviger
-    echo "Naviger service installed and started."
+        echo "Reloading systemd daemon..."
+        sudo systemctl daemon-reload
+        echo "Enabling and starting naviger service..."
+        sudo systemctl enable naviger
+        sudo systemctl start naviger
+        echo "Naviger service installed and started (Headless)."
 
-elif [ "$OS_TYPE" = "macos" ]; then
-    # Get user home dir
-    if [ "$REAL_USER" = "root" ]; then
-        USER_HOME="/var/root"
-    else
-        USER_HOME="/Users/$REAL_USER"
-    fi
+    elif [ "$OS_TYPE" = "macos" ]; then
+        # Get user home dir
+        if [ "$REAL_USER" = "root" ]; then
+            USER_HOME="/var/root"
+        else
+            USER_HOME="/Users/$REAL_USER"
+        fi
 
-    PLIST_FILE="$USER_HOME/Library/LaunchAgents/com.naviger.server.plist"
+        PLIST_FILE="$USER_HOME/Library/LaunchAgents/com.naviger.server.plist"
 
-    echo "Setting up launchd agent at $PLIST_FILE..."
+        echo "Setting up launchd agent at $PLIST_FILE..."
 
-    # Ensure the LaunchAgents directory exists
-    mkdir -p "$(dirname "$PLIST_FILE")"
-    chown "$REAL_USER" "$(dirname "$PLIST_FILE")"
+        # Ensure the LaunchAgents directory exists
+        mkdir -p "$(dirname "$PLIST_FILE")"
+        chown "$REAL_USER" "$(dirname "$PLIST_FILE")"
 
-    cat > "${PLIST_FILE}" <<EOF
+        cat > "${PLIST_FILE}" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -202,13 +218,17 @@ elif [ "$OS_TYPE" = "macos" ]; then
     <key>ProgramArguments</key>
     <array>
         <string>${INSTALL_DIR}/naviger-server</string>
+        <string>--headless</string>
     </array>
     <key>WorkingDirectory</key>
     <string>${INSTALL_DIR}</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <true/>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
     <key>StandardOutPath</key>
     <string>/tmp/naviger.out</string>
     <key>StandardErrorPath</key>
@@ -217,20 +237,85 @@ elif [ "$OS_TYPE" = "macos" ]; then
 </plist>
 EOF
 
-    # Fix permissions for the plist file
-    chown "$REAL_USER" "$PLIST_FILE"
+        # Fix permissions for the plist file
+        chown "$REAL_USER" "$PLIST_FILE"
 
-    echo "Loading launchd agent..."
-    # Run launchctl as the user
-    if [ "$REAL_USER" != "root" ]; then
-        sudo -u "$REAL_USER" launchctl unload "$PLIST_FILE" 2>/dev/null || true
-        sudo -u "$REAL_USER" launchctl load "$PLIST_FILE"
-    else
-        launchctl unload "$PLIST_FILE" 2>/dev/null || true
-        launchctl load "$PLIST_FILE"
+        echo "Loading launchd agent..."
+        # Run launchctl as the user
+        if [ "$REAL_USER" != "root" ]; then
+            sudo -u "$REAL_USER" launchctl unload "$PLIST_FILE" 2>/dev/null || true
+            sudo -u "$REAL_USER" launchctl load "$PLIST_FILE"
+        else
+            launchctl unload "$PLIST_FILE" 2>/dev/null || true
+            launchctl load "$PLIST_FILE"
+        fi
+        echo "Naviger agent installed and loaded (Headless)."
     fi
-    echo "Naviger agent installed and loaded."
+
+else
+    # DESKTOP MODE
+    echo "Installing Desktop Mode..."
+
+    if [ "$OS_TYPE" = "macos" ]; then
+        APP_DEST="/Applications/Naviger.app"
+        echo "Installing to ${APP_DEST}..."
+
+        # Look for Naviger.app in extracted files
+        if [ -d "${TMP_DIR}/extracted/Naviger.app" ]; then
+            sudo rm -rf "${APP_DEST}"
+            sudo cp -r "${TMP_DIR}/extracted/Naviger.app" "/Applications/"
+            echo "Naviger.app installed to /Applications."
+        else
+            echo "Error: Naviger.app not found in the downloaded package."
+        fi
+
+    elif [ "$OS_TYPE" = "linux" ]; then
+        # Install binaries to /opt/naviger
+        sudo mkdir -p "${INSTALL_DIR}"
+        sudo rm -rf "${INSTALL_DIR}/*"
+        sudo cp -r "${TMP_DIR}/extracted/"* "${INSTALL_DIR}/"
+
+        # Set permissions
+        sudo chmod +x "${INSTALL_DIR}/naviger-server"
+        sudo chown -R "$REAL_USER" "$INSTALL_DIR"
+
+        # Install Desktop Entry
+        DESKTOP_FILE="${INSTALL_DIR}/naviger.desktop"
+        ICON_FILE="${INSTALL_DIR}/naviger.png"
+
+        # Ensure paths in desktop file are correct
+        if [ -f "$DESKTOP_FILE" ]; then
+             # The build script should have set Exec=/opt/naviger/naviger-server
+             # We copy it to system applications
+             sudo cp "$DESKTOP_FILE" "/usr/share/applications/naviger.desktop"
+             echo "Desktop entry installed."
+        else
+             echo "Warning: naviger.desktop not found in package. Creating one..."
+             cat > naviger.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=Naviger
+Comment=Naviger Server Manager
+Exec=${INSTALL_DIR}/naviger-server
+Icon=${ICON_FILE}
+Terminal=false
+Categories=Development;Server;
+EOF
+             sudo mv naviger.desktop "/usr/share/applications/"
+        fi
+
+        echo "Naviger installed in Desktop mode."
+    fi
+
+    # Install CLI if available
+    if [ -f "${TMP_DIR}/extracted/naviger-cli" ]; then
+        echo "Installing CLI tool..."
+        sudo cp "${TMP_DIR}/extracted/naviger-cli" "${BIN_DIR}/naviger-cli"
+        sudo chmod +x "${BIN_DIR}/naviger-cli"
+    fi
+
+    # Cleanup
+    rm -rf "${TMP_DIR}"
 fi
 
 echo "Installation complete!"
-echo "You can now use 'naviger-cli' to manage your servers."

@@ -17,7 +17,7 @@ xcopy /s /e /i /y web\dist\* dist\web_dist\
 
 echo "Building Go backend..."
 echo "Building server..."
-call go build -v -o dist\naviger-server.exe .\cmd\server
+call go build -ldflags "-H=windowsgui" -v -o dist\naviger-server.exe .\cmd\server
 
 echo "Building CLI..."
 call go build -v -o dist\naviger-cli.exe .\cmd\cli

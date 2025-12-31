@@ -1,1 +1,2 @@
-- Implement headless and desktop mode.
+- Add support for macOS application bundle and Linux desktop entry
+- Enhance installation script with mode selection
