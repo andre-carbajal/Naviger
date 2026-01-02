@@ -24,6 +24,7 @@ import (
 	"naviger/internal/runner"
 	"naviger/internal/server"
 	"naviger/internal/storage"
+	"naviger/internal/updater"
 	"naviger/internal/ws"
 
 	"github.com/emersion/go-autostart"
@@ -68,6 +69,20 @@ func onReady() {
 	mOpenUI := systray.AddMenuItem("Open Web UI", "Open dashboard")
 	mRestart := systray.AddMenuItem("Restart Daemon", "Reload configuration and restart server")
 	mStartLogin := systray.AddMenuItemCheckbox("Start at Login", "Run on startup", false)
+	systray.AddSeparator()
+
+	mVersion := systray.AddMenuItem(fmt.Sprintf("Version: %s", updater.CurrentVersion), "Current version")
+	mVersion.Disable()
+
+	go func() {
+		info, err := updater.CheckForUpdates()
+		if err == nil && info.UpdateAvailable {
+			mVersion.SetTitle(fmt.Sprintf("Update Available: %s ⚠️", info.LatestVersion))
+			mVersion.SetTooltip("Click to open release page")
+			mVersion.Enable()
+		}
+	}()
+
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Exit", "Quit application")
 
@@ -132,6 +147,12 @@ func onReady() {
 					if err := appAutoStart.Enable(); err == nil {
 						mStartLogin.Check()
 					}
+				}
+
+			case <-mVersion.ClickedCh:
+				info, err := updater.CheckForUpdates()
+				if err == nil && info.UpdateAvailable {
+					_ = browser.OpenURL(info.ReleaseURL)
 				}
 
 			case <-mQuit.ClickedCh:

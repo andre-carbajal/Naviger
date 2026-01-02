@@ -1,2 +1,3 @@
 - Enable filtering and help display in backup and server dashboards
 - The server icons are now visible in the UI
+- Version is now displayed in Desktop and also displayed if there is an update available
