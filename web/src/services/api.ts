@@ -32,6 +32,7 @@ export const api = {
     getServer: (id: string) => apiInstance.get<Server>(`/servers/${id}`),
     getServerStats: (id: string) => apiInstance.get<ServerStats>(`/servers/${id}/stats`),
     getAllServerStats: () => apiInstance.get<Record<string, ServerStats>>('/servers-stats'),
+    getServerIconUrl: (id: string) => `http://localhost:${API_PORT}/servers/${id}/icon`,
     createServer: (data: Omit<Server, 'id' | 'status' | 'port'> & {
         requestId?: string
     }) => apiInstance.post<Server>('/servers', data),

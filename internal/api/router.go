@@ -82,6 +82,7 @@ func (api *Server) CreateHTTPServer(listenAddr string) *http.Server {
 	mux.HandleFunc("POST /servers", api.handleCreateServer)
 	mux.HandleFunc("GET /servers/{id}", api.handleGetServer)
 	mux.HandleFunc("GET /servers/{id}/stats", api.handleGetServerStats)
+	mux.HandleFunc("GET /servers/{id}/icon", api.handleGetServerIcon)
 	mux.HandleFunc("PUT /servers/{id}", api.handleUpdateServer)
 	mux.HandleFunc("DELETE /servers/{id}", api.handleDeleteServer)
 
@@ -250,6 +251,32 @@ func (api *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(srv)
+}
+
+func (api *Server) handleGetServerIcon(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Missing ID", http.StatusBadRequest)
+		return
+	}
+
+	srv, err := api.Manager.GetServer(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if srv == nil {
+		http.Error(w, "Server not found", http.StatusNotFound)
+		return
+	}
+
+	iconPath := filepath.Join(api.Manager.ServersPath, id, "server-icon.png")
+	if _, err := os.Stat(iconPath); os.IsNotExist(err) {
+		http.Error(w, "Icon not found", http.StatusNotFound)
+		return
+	}
+
+	http.ServeFile(w, r, iconPath)
 }
 
 func (api *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {

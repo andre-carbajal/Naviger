@@ -2,6 +2,8 @@ import {Copy, Cpu, HardDrive, MemoryStick, Play, Square, Terminal, Trash2} from 
 import {Link} from 'react-router-dom';
 import type {Server, ServerStats} from '../types';
 import {Button} from './ui/Button';
+import {useState} from 'react';
+import {api} from '../services/api';
 
 interface ServerCardProps {
     server: Server;
@@ -12,6 +14,8 @@ interface ServerCardProps {
 }
 
 const ServerCard: React.FC<ServerCardProps> = ({server, stats, onStart, onStop, onDelete}) => {
+    const [iconError, setIconError] = useState(false);
+
     const formatBytes = (bytes: number) => {
         if (bytes === 0) return '0 B';
         const k = 1024;
@@ -108,9 +112,38 @@ const ServerCard: React.FC<ServerCardProps> = ({server, stats, onStart, onStop, 
     return (
         <div className="card">
             <div className="card-header">
-                <div>
-                    <h3 className="card-title">{server.name}</h3>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                    {!iconError ? (
+                        <img
+                            src={api.getServerIconUrl(server.id)}
+                            alt="Server Icon"
+                            onError={() => setIconError(true)}
+                            style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '4px',
+                                objectFit: 'contain',
+                                imageRendering: 'pixelated'
+                            }}
+                        />
+                    ) : (
+                        <div style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '4px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '24px',
+                            color: 'var(--text-muted)'
+                        }}>
+                            {server.name.charAt(0).toUpperCase()}
+                        </div>
+                    )}
+                    <div>
+                        <h3 className="card-title">{server.name}</h3>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px'}}>
                         <span style={{
                             fontFamily: 'monospace',
                             background: 'rgba(0,0,0,0.3)',
@@ -121,22 +154,23 @@ const ServerCard: React.FC<ServerCardProps> = ({server, stats, onStart, onStop, 
                         }}>
                             {server.id}
                         </span>
-                        <button
-                            onClick={() => {
-                                navigator.clipboard.writeText(server.id);
-                            }}
-                            className="btn-secondary"
-                            style={{
-                                padding: '2px',
-                                border: 'none',
-                                cursor: 'pointer',
-                                borderRadius: '4px',
-                                display: 'flex'
-                            }}
-                            title="Copy ID"
-                        >
-                            <Copy size={12}/>
-                        </button>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(server.id);
+                                }}
+                                className="btn-secondary"
+                                style={{
+                                    padding: '2px',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    borderRadius: '4px',
+                                    display: 'flex'
+                                }}
+                                title="Copy ID"
+                            >
+                                <Copy size={12}/>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <span className={`status-badge status-${server.status.toLowerCase()}`}>{server.status}</span>

@@ -15,6 +15,7 @@ const ServerDetail: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [commandInput, setCommandInput] = useState('');
+    const [iconError, setIconError] = useState(false);
 
     const {logs, sendCommand, isConnected} = useConsole(id || '');
     const {stats} = useServerStats(id || '', server?.status === 'RUNNING');
@@ -87,15 +88,44 @@ const ServerDetail: React.FC = () => {
     return (
         <div className="server-detail">
             <div className="modal-header">
-                <div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '8px'}}>
-                        <h1 style={{margin: 0}}>{server.name}</h1>
-                        <span className={`status-badge status-${server.status.toLowerCase()}`}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                    {!iconError ? (
+                        <img
+                            src={api.getServerIconUrl(server.id)}
+                            alt="Server Icon"
+                            onError={() => setIconError(true)}
+                            style={{
+                                width: '64px',
+                                height: '64px',
+                                borderRadius: '8px',
+                                objectFit: 'contain',
+                                imageRendering: 'pixelated'
+                            }}
+                        />
+                    ) : (
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '32px',
+                            color: 'var(--text-muted)'
+                        }}>
+                            {server.name.charAt(0).toUpperCase()}
+                        </div>
+                    )}
+                    <div>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '8px'}}>
+                            <h1 style={{margin: 0}}>{server.name}</h1>
+                            <span className={`status-badge status-${server.status.toLowerCase()}`}>
                             {server.status}
                         </span>
-                    </div>
-                    <div className="text-sm text-gray-500 mb-2"
-                         style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        </div>
+                        <div className="text-sm text-gray-500 mb-2"
+                             style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                         <span style={{
                             fontFamily: 'monospace',
                             background: 'rgba(0,0,0,0.3)',
@@ -104,44 +134,44 @@ const ServerDetail: React.FC = () => {
                         }}>
                             {server.id}
                         </span>
-                        <button
-                            onClick={() => {
-                                navigator.clipboard.writeText(server.id);
-                                // Optional: simple alert or toast could go here, but keeping it simple
-                            }}
-                            className="btn-secondary"
-                            style={{
-                                padding: '4px',
-                                border: 'none',
-                                cursor: 'pointer',
-                                borderRadius: '4px',
-                                display: 'flex'
-                            }}
-                            title="Copy ID"
-                        >
-                            <Copy size={14}/>
-                        </button>
-                    </div>
-
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '15px',
-                        color: 'var(--text-muted)',
-                        fontSize: '0.9rem'
-                    }}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
-                            <span style={{fontWeight: 600, color: 'var(--text-main)'}}>{server.loader}</span>
-                            <span>{server.version}</span>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(server.id);
+                                }}
+                                className="btn-secondary"
+                                style={{
+                                    padding: '4px',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    borderRadius: '4px',
+                                    display: 'flex'
+                                }}
+                                title="Copy ID"
+                            >
+                                <Copy size={14}/>
+                            </button>
                         </div>
+
                         <div style={{
-                            width: '4px',
-                            height: '4px',
-                            borderRadius: '50%',
-                            backgroundColor: 'var(--text-muted)'
-                        }}></div>
-                        <div>Port <span
-                            style={{fontFamily: 'monospace', color: 'var(--text-main)'}}>{server.port}</span></div>
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '15px',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.9rem'
+                        }}>
+                            <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+                                <span style={{fontWeight: 600, color: 'var(--text-main)'}}>{server.loader}</span>
+                                <span>{server.version}</span>
+                            </div>
+                            <div style={{
+                                width: '4px',
+                                height: '4px',
+                                borderRadius: '50%',
+                                backgroundColor: 'var(--text-muted)'
+                            }}></div>
+                            <div>Port <span
+                                style={{fontFamily: 'monospace', color: 'var(--text-main)'}}>{server.port}</span></div>
+                        </div>
                     </div>
                 </div>
 

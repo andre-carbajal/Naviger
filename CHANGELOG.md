@@ -1,1 +1,2 @@
 - Enable filtering and help display in backup and server dashboards
+- The server icons are now visible in the UI
