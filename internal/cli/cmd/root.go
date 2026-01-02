@@ -33,8 +33,8 @@ var RootCmd = &cobra.Command{
 	},
 }
 
-func Execute() {
-	RootCmd.PersistentFlags().StringVar(&BaseURL, "url", "http://localhost:23008", "URL of the Naviger Daemon")
+func Execute(port int) {
+	RootCmd.PersistentFlags().StringVar(&BaseURL, "url", fmt.Sprintf("http://localhost:%d", port), "URL of the Naviger Daemon")
 
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)

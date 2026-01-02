@@ -2,8 +2,10 @@ package main
 
 import (
 	"naviger/internal/cli/cmd"
+	"naviger/internal/config"
 )
 
 func main() {
-	cmd.Execute()
+	port := config.GetPort()
+	cmd.Execute(port)
 }
