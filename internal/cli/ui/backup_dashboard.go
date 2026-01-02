@@ -100,6 +100,8 @@ func RunBackupDashboard(client *sdk.Client) {
 	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
 	l.Title = "Backups"
 	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(true)
+	l.SetShowHelp(false)
 	l.Styles.Title = titleStyle
 	l.Styles.PaginationStyle = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	l.Styles.HelpStyle = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
@@ -463,6 +465,7 @@ func (m BackupDashboardModel) View() string {
 			Render(m.list.View())
 
 		keys := []string{
+			keyStyle.Render("/") + descStyle.Render(": filter"),
 			keyStyle.Render("c") + descStyle.Render(": create"),
 			keyStyle.Render("r") + descStyle.Render(": restore"),
 			keyStyle.Render("d") + descStyle.Render(": delete"),

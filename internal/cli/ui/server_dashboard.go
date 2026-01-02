@@ -58,7 +58,8 @@ func RunServerDashboard(client *sdk.Client) string {
 	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
 	l.Title = "Servers"
 	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
+	l.SetFilteringEnabled(true)
+	l.SetShowHelp(false)
 	l.Styles.Title = titleStyle
 	l.Styles.PaginationStyle = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	l.Styles.HelpStyle = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
@@ -370,6 +371,7 @@ func (m model) View() string {
 		Render(m.list.View())
 
 	keys := []string{
+		keyStyle.Render("/") + descStyle.Render(": filter"),
 		keyStyle.Render("c") + descStyle.Render(": create"),
 		keyStyle.Render("s") + descStyle.Render(": start"),
 		keyStyle.Render("x") + descStyle.Render(": stop"),

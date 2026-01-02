@@ -1,2 +1,1 @@
-- Add support for macOS application bundle and Linux desktop entry
-- Enhance installation script with mode selection
+- Enable filtering and help display in backup and server dashboards
