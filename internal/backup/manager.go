@@ -110,19 +110,25 @@ func (m *Manager) ListBackups(serverID string) ([]BackupInfo, error) {
 }
 
 func (m *Manager) CreateBackup(ctx context.Context, serverID string, backupName string, progressChan chan<- domain.ProgressEvent) (string, error) {
-	serverDir := filepath.Join(m.ServersPath, serverID)
+	srv, err := m.Store.GetServerByID(serverID)
+	if err != nil {
+		return "", fmt.Errorf("could not get server info: %w", err)
+	}
+	if srv == nil {
+		return "", fmt.Errorf("server with ID '%s' not found in database", serverID)
+	}
+
+	folderName := srv.FolderName
+	if folderName == "" {
+		folderName = srv.ID
+	}
+	serverDir := filepath.Join(m.ServersPath, folderName)
+
 	if _, err := os.Stat(serverDir); os.IsNotExist(err) {
-		return "", fmt.Errorf("server directory with ID '%s' does not exist", serverID)
+		return "", fmt.Errorf("server directory for ID '%s' does not exist", serverID)
 	}
 
 	if backupName == "" {
-		srv, err := m.Store.GetServerByID(serverID)
-		if err != nil {
-			return "", fmt.Errorf("could not get server info: %w", err)
-		}
-		if srv == nil {
-			return "", fmt.Errorf("server with ID '%s' not found in database", serverID)
-		}
 		backupName = srv.Name
 	}
 
@@ -260,7 +266,11 @@ func (m *Manager) RestoreBackup(backupName string, targetServerID string, newSer
 			return fmt.Errorf("server must be stopped to restore backup")
 		}
 
-		targetDir = filepath.Join(m.ServersPath, srv.ID)
+		folderName := srv.FolderName
+		if folderName == "" {
+			folderName = srv.ID
+		}
+		targetDir = filepath.Join(m.ServersPath, folderName)
 		targetPort = srv.Port
 
 		files, err := os.ReadDir(targetDir)
@@ -277,7 +287,16 @@ func (m *Manager) RestoreBackup(backupName string, targetServerID string, newSer
 		}
 
 		id := uuid.New().String()
-		targetDir = filepath.Join(m.ServersPath, id)
+
+		// Sanitize folder name for new server
+		folderName := sanitizeFileName(newServerName)
+		targetDir = filepath.Join(m.ServersPath, folderName)
+
+		// Check for collision and append ID if needed
+		if _, err := os.Stat(targetDir); !os.IsNotExist(err) {
+			folderName = fmt.Sprintf("%s-%s", folderName, id[:8])
+			targetDir = filepath.Join(m.ServersPath, folderName)
+		}
 
 		port, err := server.AllocatePort(m.Store)
 		if err != nil {
@@ -290,14 +309,15 @@ func (m *Manager) RestoreBackup(backupName string, targetServerID string, newSer
 		}
 
 		newServer := &domain.Server{
-			ID:        id,
-			Name:      newServerName,
-			Version:   newServerVersion,
-			Loader:    newServerLoader,
-			Port:      targetPort,
-			RAM:       newServerRAM,
-			Status:    "STOPPED",
-			CreatedAt: time.Now(),
+			ID:         id,
+			Name:       newServerName,
+			FolderName: folderName,
+			Version:    newServerVersion,
+			Loader:     newServerLoader,
+			Port:       targetPort,
+			RAM:        newServerRAM,
+			Status:     "STOPPED",
+			CreatedAt:  time.Now(),
 		}
 
 		if err := m.Store.SaveServer(newServer); err != nil {
@@ -364,7 +384,7 @@ func unzip(src, dest string) error {
 }
 
 func sanitizeFileName(name string) string {
-	name = strings.ReplaceAll(name, " ", "-")
+	name = strings.ReplaceAll(name, " ", "_")
 	reg := regexp.MustCompile(`[^a-zA-Z0-9_.-]`)
 	sanitized := reg.ReplaceAllString(name, "")
 	if len(sanitized) > 50 {

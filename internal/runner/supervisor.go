@@ -65,7 +65,12 @@ func (s *Supervisor) StartServer(serverID string) error {
 		return fmt.Errorf("server not found")
 	}
 
-	serverDir := filepath.Join(s.ServersPath, srv.ID)
+	folderName := srv.FolderName
+	if folderName == "" {
+		folderName = srv.ID
+	}
+
+	serverDir := filepath.Join(s.ServersPath, folderName)
 	absServerDir, err := filepath.Abs(serverDir)
 	if err != nil {
 		return fmt.Errorf("error getting absolute path for server: %w", err)
@@ -249,7 +254,11 @@ func (s *Supervisor) GetServerStats(serverID string) (*domain.ServerStats, error
 
 	srv, err := s.Store.GetServerByID(serverID)
 	if err == nil && srv != nil {
-		serverDir := filepath.Join(s.ServersPath, srv.ID)
+		folderName := srv.FolderName
+		if folderName == "" {
+			folderName = srv.ID
+		}
+		serverDir := filepath.Join(s.ServersPath, folderName)
 		var size int64
 		_ = filepath.Walk(serverDir, func(_ string, info os.FileInfo, err error) error {
 			if err == nil && !info.IsDir() {

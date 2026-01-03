@@ -7,6 +7,7 @@ import (
 	"naviger/internal/storage"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,13 +26,29 @@ func NewManager(serversPath string, store *storage.GormStore) *Manager {
 	}
 }
 
+func sanitizeFolderName(name string) string {
+	name = strings.ReplaceAll(name, " ", "_")
+	reg := regexp.MustCompile(`[^a-zA-Z0-9_.-]`)
+	sanitized := reg.ReplaceAllString(name, "")
+	if len(sanitized) > 50 {
+		sanitized = sanitized[:50]
+	}
+	return sanitized
+}
+
 func (m *Manager) CreateServer(name string, loaderType string, version string, ram int, progressChan chan<- domain.ProgressEvent) (*domain.Server, error) {
 	if strings.ContainsAny(name, "\\/:*?\"<>|") || strings.Contains(name, "..") {
 		return nil, fmt.Errorf("invalid server name: contains forbidden characters")
 	}
 
 	id := uuid.New().String()
-	serverDir := filepath.Join(m.ServersPath, id)
+	folderName := sanitizeFolderName(name)
+	serverDir := filepath.Join(m.ServersPath, folderName)
+
+	if _, err := os.Stat(serverDir); !os.IsNotExist(err) {
+		folderName = fmt.Sprintf("%s-%s", folderName, id[:8])
+		serverDir = filepath.Join(m.ServersPath, folderName)
+	}
 
 	if progressChan != nil {
 		progressChan <- domain.ProgressEvent{Message: "Allocating port..."}
@@ -66,14 +83,15 @@ func (m *Manager) CreateServer(name string, loaderType string, version string, r
 	}
 
 	newServer := &domain.Server{
-		ID:        id,
-		Name:      name,
-		Version:   version,
-		Loader:    loaderType,
-		Port:      assignedPort,
-		RAM:       ram,
-		Status:    "STOPPED",
-		CreatedAt: time.Now(),
+		ID:         id,
+		Name:       name,
+		FolderName: folderName,
+		Version:    version,
+		Loader:     loaderType,
+		Port:       assignedPort,
+		RAM:        ram,
+		Status:     "STOPPED",
+		CreatedAt:  time.Now(),
 	}
 
 	if err := m.Store.SaveServer(newServer); err != nil {
@@ -93,7 +111,20 @@ func (m *Manager) ListServers() ([]domain.Server, error) {
 }
 
 func (m *Manager) DeleteServer(id string) error {
-	serverDir := filepath.Join(m.ServersPath, id)
+	srv, err := m.Store.GetServerByID(id)
+	if err != nil || srv == nil {
+		return fmt.Errorf("server not found in DB")
+	}
+
+	folderName := srv.FolderName
+	if folderName == "" {
+		folderName = id
+		if _, err := os.Stat(filepath.Join(m.ServersPath, folderName)); os.IsNotExist(err) {
+			folderName = sanitizeFolderName(srv.Name)
+		}
+	}
+
+	serverDir := filepath.Join(m.ServersPath, folderName)
 
 	if err := os.RemoveAll(serverDir); err != nil {
 		return fmt.Errorf("error deleting server files: %w", err)

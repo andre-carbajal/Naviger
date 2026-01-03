@@ -15,14 +15,15 @@ import (
 )
 
 type Server struct {
-	ID        string `gorm:"primaryKey"`
-	Name      string
-	Version   string
-	Loader    string
-	Port      int
-	RAM       int
-	Status    string
-	CreatedAt time.Time
+	ID         string `gorm:"primaryKey"`
+	Name       string
+	FolderName string
+	Version    string
+	Loader     string
+	Port       int
+	RAM        int
+	Status     string
+	CreatedAt  time.Time
 }
 
 type Setting struct {
@@ -87,14 +88,15 @@ func (s *GormStore) initDefaultSettings() error {
 
 func (s *GormStore) SaveServer(srv *domain.Server) error {
 	gormServer := &Server{
-		ID:        srv.ID,
-		Name:      srv.Name,
-		Version:   srv.Version,
-		Loader:    srv.Loader,
-		Port:      srv.Port,
-		RAM:       srv.RAM,
-		Status:    srv.Status,
-		CreatedAt: srv.CreatedAt,
+		ID:         srv.ID,
+		Name:       srv.Name,
+		FolderName: srv.FolderName,
+		Version:    srv.Version,
+		Loader:     srv.Loader,
+		Port:       srv.Port,
+		RAM:        srv.RAM,
+		Status:     srv.Status,
+		CreatedAt:  srv.CreatedAt,
 	}
 
 	return s.db.Create(gormServer).Error
@@ -129,14 +131,15 @@ func (s *GormStore) ListServers() ([]domain.Server, error) {
 	var servers []domain.Server
 	for _, gs := range gormServers {
 		servers = append(servers, domain.Server{
-			ID:        gs.ID,
-			Name:      gs.Name,
-			Version:   gs.Version,
-			Loader:    gs.Loader,
-			Port:      gs.Port,
-			RAM:       gs.RAM,
-			Status:    gs.Status,
-			CreatedAt: gs.CreatedAt,
+			ID:         gs.ID,
+			Name:       gs.Name,
+			FolderName: gs.FolderName,
+			Version:    gs.Version,
+			Loader:     gs.Loader,
+			Port:       gs.Port,
+			RAM:        gs.RAM,
+			Status:     gs.Status,
+			CreatedAt:  gs.CreatedAt,
 		})
 	}
 	return servers, nil
@@ -153,14 +156,15 @@ func (s *GormStore) GetServerByID(id string) (*domain.Server, error) {
 	}
 
 	return &domain.Server{
-		ID:        gormServer.ID,
-		Name:      gormServer.Name,
-		Version:   gormServer.Version,
-		Loader:    gormServer.Loader,
-		Port:      gormServer.Port,
-		RAM:       gormServer.RAM,
-		Status:    gormServer.Status,
-		CreatedAt: gormServer.CreatedAt,
+		ID:         gormServer.ID,
+		Name:       gormServer.Name,
+		FolderName: gormServer.FolderName,
+		Version:    gormServer.Version,
+		Loader:     gormServer.Loader,
+		Port:       gormServer.Port,
+		RAM:        gormServer.RAM,
+		Status:     gormServer.Status,
+		CreatedAt:  gormServer.CreatedAt,
 	}, nil
 }
 
