@@ -35,6 +35,15 @@ export const api = {
     getServerStats: (id: string) => apiInstance.get<ServerStats>(`/servers/${id}/stats`),
     getAllServerStats: () => apiInstance.get<Record<string, ServerStats>>('/servers-stats'),
     getServerIconUrl: (id: string) => `${API_PROTOCOL}//${API_HOST}:${API_PORT}/servers/${id}/icon`,
+    uploadServerIcon: (id: string, file: File) => {
+        const formData = new FormData();
+        formData.append('icon', file);
+        return apiInstance.post(`/servers/${id}/icon`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+    },
     createServer: (data: Omit<Server, 'id' | 'status' | 'port'> & {
         requestId?: string
     }) => apiInstance.post<Server>('/servers', data),

@@ -16,6 +16,7 @@ const ServerDetail: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [commandInput, setCommandInput] = useState('');
     const [iconError, setIconError] = useState(false);
+    const [iconRefreshKey, setIconRefreshKey] = useState(0);
 
     const {logs, sendCommand, isConnected} = useConsole(id || '');
     const {stats} = useServerStats(id || '', server?.status === 'RUNNING');
@@ -69,11 +70,23 @@ const ServerDetail: React.FC = () => {
         }
     };
 
-    const handleSaveSettings = async (data: { name: string; ram: number }) => {
+    const handleSaveSettings = async (data: { name: string; ram: number; icon?: File }) => {
         if (!server) return;
-        await api.updateServer(server.id, data);
-        await fetchServer();
+        try {
+            await api.updateServer(server.id, {name: data.name, ram: data.ram});
+
+            if (data.icon) {
+                await api.uploadServerIcon(server.id, data.icon);
+                setIconRefreshKey(prev => prev + 1);
+                setIconError(false);
+            }
+
+            await fetchServer();
+        } catch (err) {
+            console.error("Failed to save settings:", err);
+        }
     };
+
 
     const handleCommandSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -89,51 +102,53 @@ const ServerDetail: React.FC = () => {
         <div className="server-detail">
             <div className="modal-header">
                 <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-                    {!iconError ? (
-                        <img
-                            src={api.getServerIconUrl(server.id)}
-                            alt="Server Icon"
-                            onError={() => setIconError(true)}
-                            style={{
-                                width: '64px',
-                                height: '64px',
+                    <div style={{width: '64px', height: '64px'}}>
+                        {!iconError ? (
+                            <img
+                                src={`${api.getServerIconUrl(server.id)}?t=${iconRefreshKey}`}
+                                alt="Server Icon"
+                                onError={() => setIconError(true)}
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    borderRadius: '8px',
+                                    objectFit: 'contain',
+                                    imageRendering: 'pixelated'
+                                }}
+                            />
+                        ) : (
+                            <div style={{
+                                width: '100%',
+                                height: '100%',
                                 borderRadius: '8px',
-                                objectFit: 'contain',
-                                imageRendering: 'pixelated'
-                            }}
-                        />
-                    ) : (
-                        <div style={{
-                            width: '64px',
-                            height: '64px',
-                            borderRadius: '8px',
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '32px',
-                            color: 'var(--text-muted)'
-                        }}>
-                            {server.name.charAt(0).toUpperCase()}
-                        </div>
-                    )}
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '32px',
+                                color: 'var(--text-muted)'
+                            }}>
+                                {server.name.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                    </div>
                     <div>
                         <div style={{display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '8px'}}>
                             <h1 style={{margin: 0}}>{server.name}</h1>
                             <span className={`status-badge status-${server.status.toLowerCase()}`}>
-                            {server.status}
-                        </span>
+                                {server.status}
+                            </span>
                         </div>
                         <div className="text-sm text-gray-500 mb-2"
                              style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                        <span style={{
-                            fontFamily: 'monospace',
-                            background: 'rgba(0,0,0,0.3)',
-                            padding: '2px 6px',
-                            borderRadius: '4px'
-                        }}>
-                            {server.id}
-                        </span>
+                            <span style={{
+                                fontFamily: 'monospace',
+                                background: 'rgba(0,0,0,0.3)',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                            }}>
+                                {server.id}
+                            </span>
                             <button
                                 onClick={() => {
                                     navigator.clipboard.writeText(server.id);

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,13 +22,17 @@ type Manager struct {
 	ServersPath string
 	BackupsPath string
 	Store       *storage.GormStore
+
+	activeBackups   map[string]context.CancelFunc
+	activeBackupsMu sync.Mutex
 }
 
 func NewManager(serversPath, backupsPath string, store *storage.GormStore) *Manager {
 	return &Manager{
-		ServersPath: serversPath,
-		BackupsPath: backupsPath,
-		Store:       store,
+		ServersPath:   serversPath,
+		BackupsPath:   backupsPath,
+		Store:         store,
+		activeBackups: make(map[string]context.CancelFunc),
 	}
 }
 
@@ -107,6 +112,54 @@ func (m *Manager) ListBackups(serverID string) ([]BackupInfo, error) {
 	}
 
 	return backups, nil
+}
+
+func (m *Manager) StartBackupJob(serverID, backupName, requestID string, progressChan chan<- domain.ProgressEvent) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	m.activeBackupsMu.Lock()
+	m.activeBackups[requestID] = cancel
+	m.activeBackupsMu.Unlock()
+
+	go func() {
+		defer close(progressChan)
+		defer func() {
+			m.activeBackupsMu.Lock()
+			delete(m.activeBackups, requestID)
+			m.activeBackupsMu.Unlock()
+		}()
+
+		_, err := m.CreateBackup(ctx, serverID, backupName, progressChan)
+		if err != nil {
+			event := domain.ProgressEvent{
+				ServerID: serverID,
+				Message:  fmt.Sprintf("Error: %v", err),
+				Progress: -1,
+			}
+			progressChan <- event
+			return
+		}
+
+		event := domain.ProgressEvent{
+			ServerID: serverID,
+			Message:  "Backup created successfully",
+			Progress: 100,
+		}
+		progressChan <- event
+	}()
+}
+
+func (m *Manager) CancelBackup(requestID string) {
+	m.activeBackupsMu.Lock()
+	cancel, ok := m.activeBackups[requestID]
+	if ok {
+		delete(m.activeBackups, requestID)
+	}
+	m.activeBackupsMu.Unlock()
+
+	if ok {
+		cancel()
+	}
 }
 
 func (m *Manager) CreateBackup(ctx context.Context, serverID string, backupName string, progressChan chan<- domain.ProgressEvent) (string, error) {

@@ -1,9 +1,11 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"naviger/internal/app"
 	"naviger/internal/backup"
 	"naviger/internal/domain"
@@ -16,7 +18,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 type Server struct {
@@ -25,9 +26,6 @@ type Server struct {
 	Store         *storage.GormStore
 	HubManager    *ws.HubManager
 	BackupManager *backup.Manager
-
-	activeBackups   map[string]context.CancelFunc
-	activeBackupsMu sync.Mutex
 }
 
 func NewAPIServer(container *app.Container) *Server {
@@ -37,7 +35,6 @@ func NewAPIServer(container *app.Container) *Server {
 		Store:         container.Store,
 		HubManager:    container.HubManager,
 		BackupManager: container.BackupManager,
-		activeBackups: make(map[string]context.CancelFunc),
 	}
 }
 
@@ -83,6 +80,7 @@ func (api *Server) CreateHTTPServer(listenAddr string) *http.Server {
 	mux.HandleFunc("GET /servers/{id}", api.handleGetServer)
 	mux.HandleFunc("GET /servers/{id}/stats", api.handleGetServerStats)
 	mux.HandleFunc("GET /servers/{id}/icon", api.handleGetServerIcon)
+	mux.HandleFunc("POST /servers/{id}/icon", api.handleUploadServerIcon)
 	mux.HandleFunc("PUT /servers/{id}", api.handleUpdateServer)
 	mux.HandleFunc("DELETE /servers/{id}", api.handleDeleteServer)
 
@@ -260,28 +258,47 @@ func (api *Server) handleGetServerIcon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	srv, err := api.Manager.GetServer(id)
+	iconPath, err := api.Manager.GetServerIconPath(id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if srv == nil {
-		http.Error(w, "Server not found", http.StatusNotFound)
-		return
-	}
-
-	folderName := srv.FolderName
-	if folderName == "" {
-		folderName = id
-	}
-
-	iconPath := filepath.Join(api.Manager.ServersPath, folderName, "server-icon.png")
-	if _, err := os.Stat(iconPath); os.IsNotExist(err) {
-		http.Error(w, "Icon not found", http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
 	http.ServeFile(w, r, iconPath)
+}
+
+func (api *Server) handleUploadServerIcon(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Missing ID", http.StatusBadRequest)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		http.Error(w, "File too large", http.StatusBadRequest)
+		return
+	}
+
+	file, _, err := r.FormFile("icon")
+	if err != nil {
+		http.Error(w, "Invalid file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		http.Error(w, "Invalid image format", http.StatusBadRequest)
+		return
+	}
+
+	if err := api.Manager.SaveServerIcon(id, img); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (api *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
@@ -471,11 +488,6 @@ func (api *Server) handleBackupServer(w http.ResponseWriter, r *http.Request) {
 	}
 	hub := api.HubManager.GetHub(hubID)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	api.activeBackupsMu.Lock()
-	api.activeBackups[req.RequestID] = cancel
-	api.activeBackupsMu.Unlock()
-
 	go func() {
 		for event := range progressChan {
 			if event.ServerID == "" {
@@ -486,34 +498,7 @@ func (api *Server) handleBackupServer(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	go func() {
-		defer close(progressChan)
-		defer func() {
-			api.activeBackupsMu.Lock()
-			delete(api.activeBackups, req.RequestID)
-			api.activeBackupsMu.Unlock()
-		}()
-
-		_, err := api.BackupManager.CreateBackup(ctx, id, req.Name, progressChan)
-		if err != nil {
-			event := domain.ProgressEvent{
-				ServerID: id,
-				Message:  fmt.Sprintf("Error: %v", err),
-				Progress: -1,
-			}
-			jsonBytes, _ := json.Marshal(event)
-			hub.Broadcast(jsonBytes)
-			return
-		}
-
-		event := domain.ProgressEvent{
-			ServerID: id,
-			Message:  "Backup created successfully",
-			Progress: 100,
-		}
-		jsonBytes, _ := json.Marshal(event)
-		hub.Broadcast(jsonBytes)
-	}()
+	api.BackupManager.StartBackupJob(id, req.Name, req.RequestID, progressChan)
 
 	response := map[string]string{
 		"status": "creating",
@@ -586,16 +571,7 @@ func (api *Server) handleCancelBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	api.activeBackupsMu.Lock()
-	cancel, ok := api.activeBackups[id]
-	if ok {
-		delete(api.activeBackups, id)
-	}
-	api.activeBackupsMu.Unlock()
-
-	if ok {
-		cancel()
-	}
+	api.BackupManager.CancelBackup(id)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "cancelled"}`))

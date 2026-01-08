@@ -1,11 +1,12 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import type {Server} from '../types';
 import {Button} from './ui/Button';
+import {api} from '../services/api';
 
 interface EditServerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: { name: string; ram: number }) => Promise<void>;
+    onSave: (data: { name: string; ram: number; icon?: File }) => Promise<void>;
     server: Server | null;
 }
 
@@ -13,19 +14,38 @@ const EditServerModal: React.FC<EditServerModalProps> = ({isOpen, onClose, onSav
     const [name, setName] = useState('');
     const [ram, setRam] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
+    const [selectedIcon, setSelectedIcon] = useState<File | null>(null);
+    const [iconPreview, setIconPreview] = useState<string | null>(null);
+    const [imageError, setImageError] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen && server) {
             setName(server.name);
             setRam(server.ram);
+            setSelectedIcon(null);
+            setIconPreview(null);
+            setImageError(false);
         }
-    }, [isOpen]);
+    }, [isOpen, server]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setSelectedIcon(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setIconPreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
         try {
-            await onSave({name, ram});
+            await onSave({name, ram, icon: selectedIcon || undefined});
             onClose();
         } catch (error) {
             console.error("Failed to save server settings:", error);
@@ -42,6 +62,65 @@ const EditServerModal: React.FC<EditServerModalProps> = ({isOpen, onClose, onSav
                 <h2>Edit Server</h2>
                 <div className="text-sm text-gray-500 mb-4">{server?.id}</div>
                 <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label>Server Icon</label>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                            <div
+                                style={{
+                                    width: '64px',
+                                    height: '64px',
+                                    borderRadius: '8px',
+                                    background: '#333',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    border: '1px solid #444',
+                                    position: 'relative'
+                                }}
+                            >
+                                {iconPreview ? (
+                                    <img src={iconPreview} alt="Preview"
+                                         style={{width: '100%', height: '100%', objectFit: 'contain'}}/>
+                                ) : (
+                                    !imageError && server ? (
+                                        <img
+                                            src={`${api.getServerIconUrl(server.id)}?t=${Date.now()}`}
+                                            alt="Current"
+                                            onError={() => setImageError(true)}
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'contain',
+                                                imageRendering: 'pixelated'
+                                            }}
+                                        />
+                                    ) : (
+                                        <span style={{
+                                            fontSize: '24px',
+                                            color: '#666'
+                                        }}>{server?.name.charAt(0).toUpperCase()}</span>
+                                    )
+                                )}
+                            </div>
+                            <div style={{flex: 1}}>
+                                <input
+                                    type="file"
+                                    accept="image/png,image/jpeg"
+                                    onChange={handleFileChange}
+                                    ref={fileInputRef}
+                                    style={{display: 'none'}}
+                                />
+                                <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                                    Choose Image
+                                </Button>
+                                <div style={{fontSize: '0.8rem', color: '#666', marginTop: '5px'}}>
+                                    Recommended 64x64 PNG
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="form-group">
                         <label>Server Name</label>
                         <input

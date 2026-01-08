@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"image"
+	"image/png"
 	"naviger/internal/domain"
 	"naviger/internal/loader"
 	"naviger/internal/storage"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/image/draw"
 )
 
 type Manager struct {
@@ -135,4 +138,59 @@ func (m *Manager) DeleteServer(id string) error {
 	}
 
 	return nil
+}
+
+func (m *Manager) SaveServerIcon(id string, img image.Image) error {
+	srv, err := m.GetServer(id)
+	if err != nil {
+		return err
+	}
+	if srv == nil {
+		return fmt.Errorf("server not found")
+	}
+
+	folderName := srv.FolderName
+	if folderName == "" {
+		folderName = id
+	}
+	serverDir := filepath.Join(m.ServersPath, folderName)
+
+	if _, err := os.Stat(serverDir); os.IsNotExist(err) {
+		return fmt.Errorf("server directory not found")
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, 64, 64))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
+
+	outFile, err := os.Create(filepath.Join(serverDir, "server-icon.png"))
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer outFile.Close()
+
+	if err := png.Encode(outFile, dst); err != nil {
+		return fmt.Errorf("failed to save image: %w", err)
+	}
+	return nil
+}
+
+func (m *Manager) GetServerIconPath(id string) (string, error) {
+	srv, err := m.GetServer(id)
+	if err != nil {
+		return "", err
+	}
+	if srv == nil {
+		return "", fmt.Errorf("server not found")
+	}
+
+	folderName := srv.FolderName
+	if folderName == "" {
+		folderName = id
+	}
+
+	iconPath := filepath.Join(m.ServersPath, folderName, "server-icon.png")
+	if _, err := os.Stat(iconPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("icon not found")
+	}
+	return iconPath, nil
 }
