@@ -270,7 +270,12 @@ func (api *Server) handleGetServerIcon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	iconPath := filepath.Join(api.Manager.ServersPath, id, "server-icon.png")
+	folderName := srv.FolderName
+	if folderName == "" {
+		folderName = id
+	}
+
+	iconPath := filepath.Join(api.Manager.ServersPath, folderName, "server-icon.png")
 	if _, err := os.Stat(iconPath); os.IsNotExist(err) {
 		http.Error(w, "Icon not found", http.StatusNotFound)
 		return

@@ -2,10 +2,12 @@ import axios from 'axios';
 import type {Backup, Server, ServerStats} from '../types';
 
 const API_PORT = import.meta.env.VITE_API_PORT || 23008;
-export const WS_HOST = `localhost:${API_PORT}`;
+const API_HOST = window.location.hostname;
+const API_PROTOCOL = window.location.protocol;
+export const WS_HOST = `${API_HOST}:${API_PORT}`;
 
 const apiInstance = axios.create({
-    baseURL: `http://localhost:${API_PORT}`,
+    baseURL: `${API_PROTOCOL}//${API_HOST}:${API_PORT}`,
     timeout: 5000,
     headers: {
         'Content-Type': 'application/json',
@@ -32,7 +34,7 @@ export const api = {
     getServer: (id: string) => apiInstance.get<Server>(`/servers/${id}`),
     getServerStats: (id: string) => apiInstance.get<ServerStats>(`/servers/${id}/stats`),
     getAllServerStats: () => apiInstance.get<Record<string, ServerStats>>('/servers-stats'),
-    getServerIconUrl: (id: string) => `http://localhost:${API_PORT}/servers/${id}/icon`,
+    getServerIconUrl: (id: string) => `${API_PROTOCOL}//${API_HOST}:${API_PORT}/servers/${id}/icon`,
     createServer: (data: Omit<Server, 'id' | 'status' | 'port'> & {
         requestId?: string
     }) => apiInstance.post<Server>('/servers', data),

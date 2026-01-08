@@ -1,12 +1,13 @@
 import React, {useEffect, useState} from 'react';
 import {Cpu, HardDrive, MemoryStick, Plus, Server as ServerIcon} from 'lucide-react';
-import ServerCard from '../components/ServerCard';
+import ServerListItem from '../components/ServerListItem';
 import CreateModal from '../components/CreateModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import {useServers} from '../hooks/useServers';
 import {api} from '../services/api';
 import {Button} from '../components/ui/Button';
 import type {ServerStats} from '../types';
+import {formatBytes} from '../utils/format';
 
 const Dashboard: React.FC = () => {
     const {servers, loading, createServer, startServer, stopServer, deleteServer} = useServers();
@@ -42,14 +43,6 @@ const Dashboard: React.FC = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const formatBytes = (bytes: number) => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
-
     const handleDelete = (id: string) => {
         setServerToDelete(id);
     };
@@ -68,7 +61,7 @@ const Dashboard: React.FC = () => {
     return (
         <div className="dashboard">
             <div className="modal-header">
-                <h1>My Servers</h1>
+                <h1>Dashboard</h1>
                 <Button onClick={() => setIsCreateModalOpen(true)}>
                     <Plus size={20}/> Create Server
                 </Button>
@@ -125,15 +118,17 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
+            <h2 style={{marginBottom: '20px', fontSize: '1.5rem', fontWeight: 600}}>Lista de servidores</h2>
+
             {servers.length === 0 && !loading ? (
                 <div className="card">
                     <ServerIcon size={48}/>
                     <p>No servers found. Create your first server to get started!</p>
                 </div>
             ) : (
-                <div className="servers-grid">
+                <div className="server-list">
                     {servers.map(server => (
-                        <ServerCard
+                        <ServerListItem
                             key={server.id}
                             server={server}
                             stats={allStats[server.id]}
