@@ -86,7 +86,7 @@ export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
                     setServers(prev => prev.map(s => {
                         if (s.id === requestId) {
                             const currentSteps = s.steps || [];
-                            let newSteps = [...currentSteps];
+                            const newSteps = [...currentSteps];
                             const msg = msgData.message;
                             const progress = msgData.progress;
 

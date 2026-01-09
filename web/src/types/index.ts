@@ -32,3 +32,11 @@ export interface ServerStats {
     ram: number;
     disk: number;
 }
+
+export interface FileEntry {
+    name: string;
+    path: string;
+    isDirectory: boolean;
+    size: number;
+    lastModified: string;
+}

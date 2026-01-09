@@ -27,47 +27,61 @@ const ConsoleView: React.FC<ConsoleViewProps> = ({logs}) => {
             fontFamily: 'Consolas, "Courier New", monospace',
             cursorBlink: true,
             convertEol: true,
+            disableStdin: true,
         });
 
         const fitAddon = new FitAddon();
         term.loadAddon(fitAddon);
-        term.open(terminalRef.current);
-        fitAddon.fit();
 
+
+        term.open(terminalRef.current);
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
-        const handleResize = () => {
+        const performFit = () => {
+            if (!xtermRef.current || !terminalRef.current) return;
+
+            if (terminalRef.current.clientHeight === 0) return;
+
             fitAddon.fit();
         };
-        window.addEventListener('resize', handleResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+            requestAnimationFrame(() => performFit());
+        });
+        resizeObserver.observe(terminalRef.current);
+
+        const handleWindowResize = () => performFit();
+        window.addEventListener('resize', handleWindowResize);
+
+        setTimeout(() => performFit(), 50);
 
         return () => {
-            window.removeEventListener('resize', handleResize);
-            term.dispose();
+            window.removeEventListener('resize', handleWindowResize);
+            resizeObserver.disconnect();
+
             xtermRef.current = null;
+            fitAddonRef.current = null;
+
+            try {
+                term.dispose();
+            } catch (e) {
+                console.warn("Error disposing terminal:", e);
+            }
         };
     }, []);
 
     useEffect(() => {
-        if (!xtermRef.current) return;
+        const term = xtermRef.current;
+        if (!term) return;
 
         const newLogs = logs.slice(lastLogIndexRef.current);
         if (newLogs.length > 0) {
-            newLogs.forEach(line => {
-                xtermRef.current?.writeln(line);
-            });
+            newLogs.forEach(line => term.writeln(line));
+
             lastLogIndexRef.current = logs.length;
         }
-
     }, [logs]);
-
-    useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            fitAddonRef.current?.fit();
-        }, 100);
-        return () => clearTimeout(timeoutId);
-    }, []);
 
     return (
         <div className="console-view">

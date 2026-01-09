@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type {Backup, Server, ServerStats} from '../types';
+import type {Backup, FileEntry, Server, ServerStats} from '../types';
 
 const API_PORT = import.meta.env.VITE_API_PORT || 23008;
 const API_HOST = window.location.hostname;
@@ -79,4 +79,29 @@ export const api = {
         release_url: string;
     }>('/updates'),
     restartDaemon: () => apiInstance.post('/system/restart'),
+    listFiles: (serverId: string, path: string) => apiInstance.get<FileEntry[]>(`/servers/${serverId}/files`, {params: {path}}),
+    getFileContent: (serverId: string, path: string) => apiInstance.get(`/servers/${serverId}/files/content`, {
+        params: {path},
+        responseType: 'text'
+    }),
+    saveFileContent: (serverId: string, path: string, content: string) => apiInstance.put(`/servers/${serverId}/files/content`, content, {
+        params: {path},
+        headers: {'Content-Type': 'text/plain'}
+    }),
+    createDirectory: (serverId: string, path: string) => apiInstance.post(`/servers/${serverId}/files/directory`, {path}),
+    deleteFile: (serverId: string, path: string) => apiInstance.delete(`/servers/${serverId}/files`, {params: {path}}),
+    downloadFile: (serverId: string, path: string) => apiInstance.get(`/servers/${serverId}/files/download`, {
+        params: {path},
+        responseType: 'blob'
+    }),
+    uploadFile: (serverId: string, path: string, file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return apiInstance.post(`/servers/${serverId}/files/upload`, formData, {
+            params: {path},
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+    },
 };

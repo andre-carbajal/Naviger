@@ -39,6 +39,30 @@ func sanitizeFolderName(name string) string {
 	return sanitized
 }
 
+func (m *Manager) StartCreateServerJob(name, loaderType, version string, ram int, progressChan chan<- domain.ProgressEvent) {
+	go func() {
+		defer close(progressChan)
+		srv, err := m.CreateServer(name, loaderType, version, ram, progressChan)
+		if err != nil {
+			fmt.Printf("Error creating server: %v\n", err)
+			event := domain.ProgressEvent{
+				ServerID: "error",
+				Message:  fmt.Sprintf("Error: %v", err),
+				Progress: 0,
+			}
+			progressChan <- event
+			return
+		}
+
+		event := domain.ProgressEvent{
+			ServerID: srv.ID,
+			Message:  "Server created successfully",
+			Progress: 100,
+		}
+		progressChan <- event
+	}()
+}
+
 func (m *Manager) CreateServer(name string, loaderType string, version string, ram int, progressChan chan<- domain.ProgressEvent) (*domain.Server, error) {
 	if strings.ContainsAny(name, "\\/:*?\"<>|") || strings.Contains(name, "..") {
 		return nil, fmt.Errorf("invalid server name: contains forbidden characters")
@@ -159,6 +183,7 @@ func (m *Manager) SaveServerIcon(id string, img image.Image) error {
 		return fmt.Errorf("server directory not found")
 	}
 
+	// Resize to 64x64
 	dst := image.NewRGBA(image.Rect(0, 0, 64, 64))
 	draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
 

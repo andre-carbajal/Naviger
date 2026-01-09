@@ -1,12 +1,13 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
-import {Copy, Cpu, HardDrive, MemoryStick, Play, Settings, Square} from 'lucide-react';
+import {Copy, Cpu, Folder, HardDrive, MemoryStick, Play, Settings, Square, Terminal} from 'lucide-react';
 import {api} from '../services/api';
 import type {Server} from '../types';
 import {useConsole} from '../hooks/useConsole';
 import {useServerStats} from '../hooks/useServerStats';
 import ConsoleView from '../components/ConsoleView';
 import EditServerModal from '../components/EditServerModal';
+import FileExplorer from '../components/FileExplorer';
 import {Button} from '../components/ui/Button';
 
 const ServerDetail: React.FC = () => {
@@ -17,6 +18,7 @@ const ServerDetail: React.FC = () => {
     const [commandInput, setCommandInput] = useState('');
     const [iconError, setIconError] = useState(false);
     const [iconRefreshKey, setIconRefreshKey] = useState(0);
+    const [activeTab, setActiveTab] = useState<'console' | 'files'>('console');
 
     const {logs, sendCommand, isConnected} = useConsole(id || '');
     const {stats} = useServerStats(id || '', server?.status === 'RUNNING');
@@ -99,8 +101,8 @@ const ServerDetail: React.FC = () => {
     if (!server) return <div>Server not found</div>;
 
     return (
-        <div className="server-detail">
-            <div className="modal-header">
+        <div className="server-detail h-full flex flex-col">
+            <div className="modal-header shrink-0">
                 <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
                     <div style={{width: '64px', height: '64px'}}>
                         {!iconError ? (
@@ -166,7 +168,6 @@ const ServerDetail: React.FC = () => {
                                 <Copy size={14}/>
                             </button>
                         </div>
-
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -207,7 +208,31 @@ const ServerDetail: React.FC = () => {
                 </div>
             </div>
 
-            <div style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+            <div className="server-tabs">
+                <button
+                    onClick={() => setActiveTab('console')}
+                    className={`tab-btn ${activeTab === 'console' ? 'active' : ''}`}
+                >
+                    <Terminal size={16}/>
+                    Console
+                    {activeTab === 'console' && <div className="tab-indicator"></div>}
+                </button>
+                <button
+                    onClick={() => setActiveTab('files')}
+                    className={`tab-btn ${activeTab === 'files' ? 'active' : ''}`}
+                >
+                    <Folder size={16}/>
+                    Files
+                    {activeTab === 'files' && <div className="tab-indicator"></div>}
+                </button>
+            </div>
+
+            <div style={{
+                display: activeTab === 'console' ? 'block' : 'none',
+                flex: 1,
+                flexDirection: 'column',
+                gap: '15px'
+            }}>
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -266,7 +291,12 @@ const ServerDetail: React.FC = () => {
                     </div>
                 </div>
 
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '10px'
+                }}>
                     <h2 style={{margin: 0, fontSize: '1.2rem'}}>Console</h2>
                     <span style={{
                         display: 'flex',
@@ -279,7 +309,7 @@ const ServerDetail: React.FC = () => {
                     </span>
                 </div>
 
-                <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '10px', flex: 1}}>
                     <ConsoleView logs={logs}/>
 
                     <form onSubmit={handleCommandSubmit} style={{display: 'flex', gap: '10px'}}>
@@ -297,6 +327,10 @@ const ServerDetail: React.FC = () => {
                         </Button>
                     </form>
                 </div>
+            </div>
+
+            <div style={{display: activeTab === 'files' ? 'block' : 'none', flex: 1}}>
+                <FileExplorer serverId={server.id}/>
             </div>
 
             <EditServerModal

@@ -299,7 +299,7 @@ nav {
     gap: 1rem;
 }
 
-.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+.space-y-4> :not([hidden])~ :not([hidden]) {
     --tw-space-y-reverse: 0;
     margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
     margin-bottom: calc(1rem * var(--tw-space-y-reverse));
@@ -309,7 +309,7 @@ nav {
     margin-top: 1rem;
 }
 
-.space-x-2 > :not([hidden]) ~ :not([hidden]) {
+.space-x-2> :not([hidden])~ :not([hidden]) {
     --tw-space-x-reverse: 0;
     margin-right: calc(0.5rem * var(--tw-space-x-reverse));
     margin-left: calc(0.5rem * calc(1 - var(--tw-space-x-reverse)));
@@ -425,7 +425,7 @@ nav {
     border-radius: 8px;
     z-index: 1000;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    animation: fadeIn 0.5s, fadeOut 0.5s 4.5s;
+    animation: fadeIn 0.5s 0s both, fadeOut 0.5s 4.5s both;
 }
 
 .notification.error {
@@ -812,4 +812,284 @@ nav {
     font-size: 16px;
     font-weight: 600;
     color: var(--text-muted);
+}
+
+/* Utility Classes */
+.flex-col {
+    flex-direction: column;
+}
+
+.h-full {
+    height: 100%;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.shrink-0 {
+    flex-shrink: 0;
+}
+
+.border-b {
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Server Tabs */
+.server-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+    gap: 24px;
+    padding: 0 4px;
+}
+
+.tab-btn {
+    padding-bottom: 12px;
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    position: relative;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tab-btn:hover {
+    color: white;
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    /* Using primary color (indigo-400 equivalent in usage) */
+}
+
+.tab-indicator {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--primary);
+    border-top-left-radius: 9999px;
+    border-top-right-radius: 9999px;
+}
+
+/* File Explorer Styles */
+.file-explorer-container {
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    height: 600px;
+}
+
+.file-toolbar {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.breadcrumb-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: #9ca3af;
+    overflow: hidden;
+}
+
+.breadcrumb-btn {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0;
+}
+
+.breadcrumb-btn:hover {
+    color: white;
+}
+
+.toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toolbar-btn {
+    padding: 8px;
+    border-radius: 6px;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toolbar-btn:hover {
+    background-color: #2d2d2d;
+    color: white;
+}
+
+.toolbar-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: transparent;
+    color: #9ca3af;
+}
+
+.new-folder-input-container {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: #252525;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-list-container {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.file-table {
+    width: 100%;
+    text-align: left;
+    font-size: 0.875rem;
+    border-collapse: collapse;
+}
+
+.file-table thead {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    background-color: #252525;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.file-table th {
+    padding: 8px 16px;
+    font-weight: 500;
+}
+
+.file-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #2d2d2d;
+}
+
+.file-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.file-row:hover {
+    background-color: #252525;
+}
+
+.file-manage-btn {
+    padding: 4px;
+    border-radius: 4px;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.file-manage-btn:hover {
+    background-color: #333333;
+    color: white;
+}
+
+.file-manage-btn.delete:hover {
+    color: #f87171;
+    /* red-400 */
+}
+
+.row-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.file-row:hover .row-actions {
+    opacity: 1;
+}
+
+/* File Editor */
+.editor-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.editor-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.editor-textarea {
+    width: 100%;
+    height: 100%;
+    background-color: #1e1e1e;
+    color: #d1d5db;
+    font-family: monospace;
+    font-size: 0.875rem;
+    padding: 16px;
+    resize: none;
+    border: none;
+    outline: none;
+}
+
+.editor-textarea:focus {
+    background-color: #252525;
+}
+
+.editor-footer {
+    padding: 8px;
+    border-top: 1px solid var(--border-color);
+    background-color: #252525;
+    font-size: 0.75rem;
+    color: #6b7280;
+    display: flex;
+    justify-content: space-between;
+}
+
+.unsaved-badge {
+    font-size: 0.75rem;
+    color: #eab308;
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.unsaved-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #eab308;
 }

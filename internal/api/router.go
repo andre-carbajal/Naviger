@@ -84,6 +84,14 @@ func (api *Server) CreateHTTPServer(listenAddr string) *http.Server {
 	mux.HandleFunc("PUT /servers/{id}", api.handleUpdateServer)
 	mux.HandleFunc("DELETE /servers/{id}", api.handleDeleteServer)
 
+	mux.HandleFunc("GET /servers/{id}/files", api.handleListFiles)
+	mux.HandleFunc("GET /servers/{id}/files/content", api.handleGetFileContent)
+	mux.HandleFunc("PUT /servers/{id}/files/content", api.handleSaveFileContent)
+	mux.HandleFunc("POST /servers/{id}/files/directory", api.handleCreateDirectory)
+	mux.HandleFunc("DELETE /servers/{id}/files", api.handleDeleteFile)
+	mux.HandleFunc("GET /servers/{id}/files/download", api.handleDownloadFile)
+	mux.HandleFunc("POST /servers/{id}/files/upload", api.handleUploadFile)
+
 	mux.HandleFunc("POST /servers/{id}/start", api.handleStartServer)
 	mux.HandleFunc("POST /servers/{id}/stop", api.handleStopServer)
 	mux.HandleFunc("POST /servers/{id}/backup", api.handleBackupServer)
@@ -382,29 +390,7 @@ func (api *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	go func() {
-		defer close(progressChan)
-		srv, err := api.Manager.CreateServer(req.Name, req.Loader, req.Version, req.RAM, progressChan)
-		if err != nil {
-			fmt.Printf("Error creating server: %v\n", err)
-			event := domain.ProgressEvent{
-				ServerID: "error",
-				Message:  fmt.Sprintf("Error: %v", err),
-				Progress: 0,
-			}
-			jsonBytes, _ := json.Marshal(event)
-			hub.Broadcast(jsonBytes)
-			return
-		}
-
-		event := domain.ProgressEvent{
-			ServerID: srv.ID,
-			Message:  "Server created successfully",
-			Progress: 100,
-		}
-		jsonBytes, _ := json.Marshal(event)
-		hub.Broadcast(jsonBytes)
-	}()
+	api.Manager.StartCreateServerJob(req.Name, req.Loader, req.Version, req.RAM, progressChan)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
