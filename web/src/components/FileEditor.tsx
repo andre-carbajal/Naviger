@@ -1,6 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import {api} from '../services/api';
 import {ArrowLeft, FileCode, Loader2, Save} from 'lucide-react';
+import Editor, {type OnMount} from "@monaco-editor/react";
+import {registerJson5Language} from 'monaco-json5-highlighter';
 
 interface FileEditorProps {
     serverId: string;
@@ -53,6 +55,46 @@ const FileEditor: React.FC<FileEditorProps> = ({serverId, filePath, onClose}) =>
 
     const hasChanges = content !== originalContent;
     const fileName = filePath.split('/').pop();
+
+    const getLanguage = (path: string) => {
+        const ext = path.split('.').pop()?.toLowerCase();
+        switch (ext) {
+            case 'json':
+                return 'json';
+            case 'json5':
+                return 'json5';
+            case 'js':
+            case 'jsx':
+                return 'javascript';
+            case 'ts':
+            case 'tsx':
+                return 'typescript';
+            case 'html':
+                return 'html';
+            case 'css':
+                return 'css';
+            case 'xml':
+                return 'xml';
+            case 'yaml':
+            case 'yml':
+                return 'yaml';
+            case 'properties':
+            case 'ini':
+            case 'conf':
+            case 'toml':
+                return 'ini';
+            case 'sh':
+            case 'bash':
+                return 'shell';
+            default:
+                return 'plaintext';
+        }
+    };
+
+    const handleEditorMount: OnMount = (editor, monaco) => {
+        registerJson5Language(monaco);
+        editor.focus();
+    };
 
     return (
         <div className="file-explorer-container">
@@ -141,11 +183,22 @@ const FileEditor: React.FC<FileEditorProps> = ({serverId, filePath, onClose}) =>
                         </div>
                     </div>
                 ) : (
-                    <textarea
+                    <Editor
+                        height="100%"
+                        defaultLanguage={getLanguage(filePath)}
+                        language={getLanguage(filePath)}
                         value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        className="editor-textarea"
-                        spellCheck={false}
+                        theme="vs-dark"
+                        onChange={(value) => setContent(value || '')}
+                        onMount={handleEditorMount}
+                        options={{
+                            minimap: {enabled: true},
+                            fontSize: 14,
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                            tabSize: 2,
+                            wordWrap: 'on',
+                        }}
                     />
                 )}
             </div>
@@ -153,6 +206,7 @@ const FileEditor: React.FC<FileEditorProps> = ({serverId, filePath, onClose}) =>
             <div className="editor-footer">
                 <span>Space: 2</span>
                 <span>UTF-8</span>
+                <span>{getLanguage(filePath).toUpperCase()}</span>
             </div>
         </div>
     );
