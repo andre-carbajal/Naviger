@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {NavLink, Outlet} from 'react-router-dom';
-import {ArrowUpCircle, DatabaseBackup, LayoutDashboard, Settings, Terminal} from 'lucide-react';
+import {ArrowUpCircle, DatabaseBackup, LayoutDashboard, Settings} from 'lucide-react';
 import '../App.css';
 import {api} from "../services/api.ts";
 
@@ -21,7 +21,7 @@ const Layout: React.FC = () => {
         <div className="layout">
             <aside className="sidebar">
                 <div className="brand">
-                    <Terminal size={24}/>
+                    <img src="/apple-touch-icon.png" alt="Naviger" style={{width: '24px', height: '24px'}}/>
                     <span>Naviger</span>
                 </div>
                 <nav>

@@ -2,3 +2,4 @@
 - Add server icon upload functionality on server config UI
 - Add custom arguments support for server configuration
 - Implement file management features including upload, download, and directory operations
+- Web icon updated

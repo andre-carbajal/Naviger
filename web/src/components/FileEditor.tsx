@@ -24,8 +24,9 @@ const FileEditor: React.FC<FileEditorProps> = ({serverId, filePath, onClose}) =>
                 const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2);
                 setContent(text);
                 setOriginalContent(text);
-            } catch (err: any) {
-                setError(err.response?.data || err.message || 'Failed to load file content');
+            } catch (err) {
+                const error = err as Error & { response?: { data?: string } };
+                setError(error.response?.data || error.message || 'Failed to load file content');
             } finally {
                 setLoading(false);
             }
@@ -42,8 +43,9 @@ const FileEditor: React.FC<FileEditorProps> = ({serverId, filePath, onClose}) =>
             await api.saveFileContent(serverId, filePath, content);
             setOriginalContent(content);
             alert("File saved successfully!");
-        } catch (err: any) {
-            alert(err.response?.data || 'Failed to save file');
+        } catch (err) {
+            const error = err as Error & { response?: { data?: string } };
+            alert(error.response?.data || 'Failed to save file');
         } finally {
             setSaving(false);
         }
