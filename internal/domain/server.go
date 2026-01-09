@@ -11,6 +11,7 @@ type Server struct {
 	Port       int       `json:"port"`
 	RAM        int       `json:"ram"`
 	Status     string    `json:"status"`
+	CustomArgs string    `json:"customArgs"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 

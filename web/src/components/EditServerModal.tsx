@@ -6,13 +6,14 @@ import {api} from '../services/api';
 interface EditServerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: { name: string; ram: number; icon?: File }) => Promise<void>;
+    onSave: (data: { name: string; ram: number; customArgs?: string; icon?: File }) => Promise<void>;
     server: Server | null;
 }
 
 const EditServerModal: React.FC<EditServerModalProps> = ({isOpen, onClose, onSave, server}) => {
     const [name, setName] = useState('');
     const [ram, setRam] = useState(0);
+    const [customArgs, setCustomArgs] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [selectedIcon, setSelectedIcon] = useState<File | null>(null);
     const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -23,6 +24,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({isOpen, onClose, onSav
         if (isOpen && server) {
             setName(server.name);
             setRam(server.ram);
+            setCustomArgs(server.customArgs || '');
             setSelectedIcon(null);
             setIconPreview(null);
             setImageError(false);
@@ -45,7 +47,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({isOpen, onClose, onSav
         e.preventDefault();
         setIsSaving(true);
         try {
-            await onSave({name, ram, icon: selectedIcon || undefined});
+            await onSave({name, ram, customArgs, icon: selectedIcon || undefined});
             onClose();
         } catch (error) {
             console.error("Failed to save server settings:", error);
@@ -141,6 +143,16 @@ const EditServerModal: React.FC<EditServerModalProps> = ({isOpen, onClose, onSav
                             required
                             min="1024"
                             step="512"
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Custom Arguments</label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            value={customArgs}
+                            onChange={(e) => setCustomArgs(e.target.value)}
+                            placeholder="-Dexample=true"
                         />
                     </div>
                     <div className="modal-actions">

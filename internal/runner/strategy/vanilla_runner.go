@@ -5,13 +5,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 type VanillaRunner struct {
 	JarName string
 }
 
-func (r *VanillaRunner) BuildCommand(javaPath string, absServerDir string, ram int) (*exec.Cmd, error) {
+func (r *VanillaRunner) BuildCommand(javaPath string, absServerDir string, ram int, customArgs string) (*exec.Cmd, error) {
 	jarPath := r.JarName
 	if jarPath == "" {
 		jarPath = "server.jar"
@@ -28,9 +29,13 @@ func (r *VanillaRunner) BuildCommand(javaPath string, absServerDir string, ram i
 	args := []string{
 		fmt.Sprintf("-Xmx%dM", ram),
 		"-Xms512M",
-		"-jar", jarPath,
-		"nogui",
 	}
+
+	if customArgs != "" {
+		args = append(args, strings.Fields(customArgs)...)
+	}
+
+	args = append(args, "-jar", jarPath, "nogui")
 
 	cmd := exec.Command(javaPath, args...)
 	cmd.Dir = absServerDir

@@ -49,7 +49,8 @@ export const api = {
     }) => apiInstance.post<Server>('/servers', data),
     updateServer: (id: string, data: {
         name?: string,
-        ram?: number
+        ram?: number,
+        customArgs?: string
     }) => apiInstance.put<Server>(`/servers/${id}`, data),
     deleteServer: (id: string) => apiInstance.delete(`/servers/${id}`),
     startServer: (id: string) => apiInstance.post(`/servers/${id}/start`),

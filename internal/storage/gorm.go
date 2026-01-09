@@ -23,6 +23,7 @@ type Server struct {
 	Port       int
 	RAM        int
 	Status     string
+	CustomArgs string
 	CreatedAt  time.Time
 }
 
@@ -96,14 +97,15 @@ func (s *GormStore) SaveServer(srv *domain.Server) error {
 		Port:       srv.Port,
 		RAM:        srv.RAM,
 		Status:     srv.Status,
+		CustomArgs: srv.CustomArgs,
 		CreatedAt:  srv.CreatedAt,
 	}
 
 	return s.db.Create(gormServer).Error
 }
 
-func (s *GormStore) UpdateServer(id string, name *string, ram *int) error {
-	if name == nil && ram == nil {
+func (s *GormStore) UpdateServer(id string, name *string, ram *int, customArgs *string) error {
+	if name == nil && ram == nil && customArgs == nil {
 		return errors.New("no fields to update")
 	}
 
@@ -113,6 +115,9 @@ func (s *GormStore) UpdateServer(id string, name *string, ram *int) error {
 	}
 	if ram != nil {
 		updates["ram"] = *ram
+	}
+	if customArgs != nil {
+		updates["custom_args"] = *customArgs
 	}
 
 	return s.db.Model(&Server{}).Where("id = ?", id).Updates(updates).Error
@@ -139,6 +144,7 @@ func (s *GormStore) ListServers() ([]domain.Server, error) {
 			Port:       gs.Port,
 			RAM:        gs.RAM,
 			Status:     gs.Status,
+			CustomArgs: gs.CustomArgs,
 			CreatedAt:  gs.CreatedAt,
 		})
 	}
@@ -164,6 +170,7 @@ func (s *GormStore) GetServerByID(id string) (*domain.Server, error) {
 		Port:       gormServer.Port,
 		RAM:        gormServer.RAM,
 		Status:     gormServer.Status,
+		CustomArgs: gormServer.CustomArgs,
 		CreatedAt:  gormServer.CreatedAt,
 	}, nil
 }

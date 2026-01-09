@@ -6,6 +6,7 @@ export interface Server {
     port: number;
     ram: number;
     status: "STOPPED" | "RUNNING" | "STARTING" | "STOPPING" | "CREATING";
+    customArgs?: string;
     progress?: number;
     progressMessage?: string;
     steps?: ProgressStep[];

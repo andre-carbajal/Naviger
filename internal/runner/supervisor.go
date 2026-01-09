@@ -102,7 +102,7 @@ func (s *Supervisor) StartServer(serverID string) error {
 	}
 
 	runner := strategy.GetRunner(srv.Loader)
-	cmd, err := runner.BuildCommand(javaPath, absServerDir, srv.RAM)
+	cmd, err := runner.BuildCommand(javaPath, absServerDir, srv.RAM, srv.CustomArgs)
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (s *Supervisor) StartServer(serverID string) error {
 				if !ok {
 					return
 				}
-				_, err := io.WriteString(stdin, string(command))
+				_, err := stdin.Write(command)
 				if err != nil {
 					return
 				}

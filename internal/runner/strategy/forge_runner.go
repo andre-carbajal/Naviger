@@ -8,11 +8,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 type ForgeRunner struct{}
 
-func (r *ForgeRunner) BuildCommand(javaPath string, absServerDir string, ram int) (*exec.Cmd, error) {
+func (r *ForgeRunner) BuildCommand(javaPath string, absServerDir string, ram int, customArgs string) (*exec.Cmd, error) {
 	librariesDir := filepath.Join(absServerDir, "libraries")
 	var argsFile string
 	targetFile := "unix_args.txt"
@@ -49,6 +50,10 @@ func (r *ForgeRunner) BuildCommand(javaPath string, absServerDir string, ram int
 	userJvmArgs := filepath.Join(absServerDir, "user_jvm_args.txt")
 	if _, err := os.Stat(userJvmArgs); err == nil {
 		args = append(args, fmt.Sprintf("@%s", userJvmArgs))
+	}
+
+	if customArgs != "" {
+		args = append(args, strings.Fields(customArgs)...)
 	}
 
 	args = append(args, fmt.Sprintf("@%s", argsFile))

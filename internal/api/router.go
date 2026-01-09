@@ -309,15 +309,16 @@ func (api *Server) handleUpdateServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name *string `json:"name"`
-		RAM  *int    `json:"ram"`
+		Name       *string `json:"name"`
+		RAM        *int    `json:"ram"`
+		CustomArgs *string `json:"customArgs"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	if err := api.Store.UpdateServer(id, req.Name, req.RAM); err != nil {
+	if err := api.Store.UpdateServer(id, req.Name, req.RAM, req.CustomArgs); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

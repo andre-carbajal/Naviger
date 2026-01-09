@@ -70,10 +70,10 @@ const ServerDetail: React.FC = () => {
         }
     };
 
-    const handleSaveSettings = async (data: { name: string; ram: number; icon?: File }) => {
+    const handleSaveSettings = async (data: { name: string; ram: number; customArgs?: string; icon?: File }) => {
         if (!server) return;
         try {
-            await api.updateServer(server.id, {name: data.name, ram: data.ram});
+            await api.updateServer(server.id, {name: data.name, ram: data.ram, customArgs: data.customArgs});
 
             if (data.icon) {
                 await api.uploadServerIcon(server.id, data.icon);

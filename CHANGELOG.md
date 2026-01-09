@@ -1,2 +1,3 @@
 - Refactor dashboard server UI
 - Add server icon upload functionality on server config UI
+- Add custom arguments support for server configuration
