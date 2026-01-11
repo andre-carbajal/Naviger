@@ -1,12 +1,14 @@
 #define MyAppName "Naviger"
 #define MyAppVersion GetEnv("MYAPP_VERSION")
 #define MyAppPublisher "Andre Carbajal"
+#define MyAppCopyright "Copyright (C) 2026 Andre Carbajal"
 
 [Setup]
 AppId={{628b9b2c-84a9-4010-9a9c-10f3b32b538c}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+AppCopyright={#MyAppCopyright}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputBaseFilename=Naviger-{#MyAppVersion}-windows
@@ -14,6 +16,15 @@ Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=admin
 CloseApplications=force
+VersionInfoVersion={#MyAppVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription={#MyAppName} Installer
+VersionInfoTextVersion={#MyAppVersion}
+VersionInfoCopyright={#MyAppCopyright}
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppVersion}
+
+SetupIconFile=cmd\server\icon.ico
 
 [Files]
 Source: "dist\naviger-server.exe"; DestDir: "{app}"; Flags: ignoreversion
