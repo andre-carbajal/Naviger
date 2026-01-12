@@ -2,6 +2,7 @@ import type {ReactNode} from 'react';
 import React, {createContext, useCallback, useEffect, useRef, useState} from 'react';
 import {api, WS_HOST} from '../services/api';
 import type {Server} from '../types';
+import {useAuth} from './AuthContext';
 
 interface ServerContextType {
     servers: Server[];
@@ -22,6 +23,7 @@ interface ServerContextType {
 export const ServerContext = createContext<ServerContextType | undefined>(undefined);
 
 export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) => {
+    const {token} = useAuth();
     const [servers, setServers] = useState<Server[]>([]);
     const [loading, setLoading] = useState(true);
     const activeSockets = useRef<Set<string>>(new Set());
@@ -68,10 +70,10 @@ export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
     }, []);
 
     const trackProgress = useCallback((requestId: string) => {
-        if (activeSockets.current.has(requestId)) return;
+        if (activeSockets.current.has(requestId) || !token) return;
 
         activeSockets.current.add(requestId);
-        const ws = new WebSocket(`ws://${WS_HOST}/ws/progress/${requestId}`);
+        const ws = new WebSocket(`ws://${WS_HOST}/ws/progress/${requestId}?token=${token}`);
         wsMap.current.set(requestId, ws);
 
         ws.onmessage = (event) => {
@@ -153,7 +155,7 @@ export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
             activeSockets.current.delete(requestId);
             wsMap.current.delete(requestId);
         };
-    }, [fetchServers, removeCreatingServer]);
+    }, [fetchServers, removeCreatingServer, token]);
 
     useEffect(() => {
         const stored = localStorage.getItem('creating_servers');
@@ -249,10 +251,15 @@ export const ServerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
     };
 
     useEffect(() => {
+        if (!token) {
+            setServers([]);
+            return;
+        }
+
         fetchServers();
         const interval = setInterval(fetchServers, 5000);
         return () => clearInterval(interval);
-    }, [fetchServers]);
+    }, [fetchServers, token]);
 
     return (
         <ServerContext.Provider value={{

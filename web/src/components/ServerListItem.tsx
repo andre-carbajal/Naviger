@@ -5,6 +5,7 @@ import type {Server, ServerStats} from '../types';
 import {Button} from './ui/Button';
 import {api} from '../services/api';
 import {formatBytes} from '../utils/format';
+import {useAuth} from '../context/AuthContext';
 
 interface ServerListItemProps {
     server: Server;
@@ -15,6 +16,7 @@ interface ServerListItemProps {
 }
 
 const ServerListItem: React.FC<ServerListItemProps> = ({server, stats, onStart, onStop, onDelete}) => {
+    const {user} = useAuth();
     const [iconError, setIconError] = useState(false);
 
     if (server.status === 'CREATING') {
@@ -90,28 +92,35 @@ const ServerListItem: React.FC<ServerListItemProps> = ({server, stats, onStart, 
                 </div>
 
                 <div className="actions-group">
-                    {isRunning ? (
-                        <Button
-                            variant="danger"
-                            onClick={() => onStop(server.id)}
-                        >
-                            <Square size={16} fill="currentColor"/> Stop
-                        </Button>
-                    ) : (
-                        <Button
-                            onClick={() => onStart(server.id)}
-                            disabled={server.status !== 'STOPPED'}
-                        >
-                            <Play size={16}/> Start
-                        </Button>
+                    {(server.permissions?.canControlPower || server.permissions?.canViewConsole) && (
+                        isRunning ? (
+                            <Button
+                                variant="danger"
+                                onClick={() => onStop(server.id)}
+                            >
+                                <Square size={16} fill="currentColor"/> Stop
+                            </Button>
+                        ) : (
+                            <Button
+                                onClick={() => onStart(server.id)}
+                                disabled={server.status !== 'STOPPED'}
+                            >
+                                <Play size={16}/> Start
+                            </Button>
+                        )
                     )}
 
-                    <Link to={`/servers/${server.id}`} className="icon-action console-btn" title="Console">
-                        <Terminal size={18}/>
-                    </Link>
-                    <button className="icon-action danger" onClick={() => onDelete(server.id)} title="Delete">
-                        <Trash2 size={18}/>
-                    </button>
+                    {server.permissions?.canViewConsole && (
+                        <Link to={`/servers/${server.id}`} className="icon-action console-btn" title="Console">
+                            <Terminal size={18}/>
+                        </Link>
+                    )}
+
+                    {user?.role === 'admin' && (
+                        <button className="icon-action danger" onClick={() => onDelete(server.id)} title="Delete">
+                            <Trash2 size={18}/>
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

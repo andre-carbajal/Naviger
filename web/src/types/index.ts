@@ -10,6 +10,7 @@ export interface Server {
     progress?: number;
     progressMessage?: string;
     steps?: ProgressStep[];
+    permissions?: Permission;
 }
 
 export interface ProgressStep {
@@ -32,6 +33,20 @@ export interface ServerStats {
     ram: number;
     disk: number;
 }
+
+export interface User {
+    id: string;
+    username: string;
+    role: string;
+}
+
+export interface Permission {
+    userId: string;
+    serverId: string;
+    canViewConsole: boolean;
+    canControlPower: boolean;
+}
+
 
 export interface FileEntry {
     name: string;

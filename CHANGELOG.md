@@ -1,1 +1,1 @@
-- Integrate text highlighting feature in the file editor.
+- Implement user authentication and authorization features, including login, user management, and JWT support

@@ -8,6 +8,7 @@ import (
 	_ "image/png"
 	"naviger/internal/app"
 	"naviger/internal/backup"
+	"naviger/internal/config"
 	"naviger/internal/domain"
 	"naviger/internal/loader"
 	"naviger/internal/runner"
@@ -26,15 +27,17 @@ type Server struct {
 	Store         *storage.GormStore
 	HubManager    *ws.HubManager
 	BackupManager *backup.Manager
+	Config        *config.Config
 }
 
-func NewAPIServer(container *app.Container) *Server {
+func NewAPIServer(container *app.Container, cfg *config.Config) *Server {
 	return &Server{
 		Manager:       container.ServerManager,
 		Supervisor:    container.Supervisor,
 		Store:         container.Store,
 		HubManager:    container.HubManager,
 		BackupManager: container.BackupManager,
+		Config:        cfg,
 	}
 }
 
@@ -72,45 +75,66 @@ func (api *Server) CreateHTTPServer(listenAddr string) *http.Server {
 		fileServer.ServeHTTP(w, r)
 	})
 
-	mux.HandleFunc("GET /loaders", api.handleGetLoaders)
-	mux.HandleFunc("GET /loaders/{name}/versions", api.handleGetLoaderVersions)
-	mux.HandleFunc("GET /servers", api.handleListServers)
-	mux.HandleFunc("GET /servers-stats", api.handleGetAllServerStats)
-	mux.HandleFunc("POST /servers", api.handleCreateServer)
-	mux.HandleFunc("GET /servers/{id}", api.handleGetServer)
-	mux.HandleFunc("GET /servers/{id}/stats", api.handleGetServerStats)
+	mux.HandleFunc("POST /auth/login", api.handleLogin)
+	mux.HandleFunc("POST /auth/setup", api.handleSetup)
+	mux.HandleFunc("POST /public-links/{token}/access", api.handleAccessPublicLink)
+	mux.HandleFunc("GET /public-links/{token}", api.handleGetPublicServerInfo)
+	mux.HandleFunc("DELETE /public-links/{token}", api.handleDeletePublicLink)
+
+	protect := func(h http.HandlerFunc, role string) http.Handler {
+		return api.AuthMiddleware(h, role, api.Config.JWTSecret)
+	}
+
+	mux.Handle("GET /auth/me", protect(api.handleMe, ""))
+
+	mux.Handle("GET /loaders", protect(api.handleGetLoaders, ""))
+	mux.Handle("GET /loaders/{name}/versions", protect(api.handleGetLoaderVersions, ""))
+
+	mux.Handle("GET /servers", protect(api.handleListServers, ""))
+	mux.Handle("GET /servers-stats", protect(api.handleGetAllServerStats, ""))
+	mux.Handle("POST /servers", protect(api.handleCreateServer, "admin"))
+
+	mux.Handle("GET /servers/{id}", protect(api.handleGetServer, ""))
+	mux.Handle("GET /servers/{id}/stats", protect(api.handleGetServerStats, ""))
 	mux.HandleFunc("GET /servers/{id}/icon", api.handleGetServerIcon)
-	mux.HandleFunc("POST /servers/{id}/icon", api.handleUploadServerIcon)
-	mux.HandleFunc("PUT /servers/{id}", api.handleUpdateServer)
-	mux.HandleFunc("DELETE /servers/{id}", api.handleDeleteServer)
+	mux.Handle("POST /servers/{id}/icon", protect(api.handleUploadServerIcon, "admin"))
+	mux.Handle("PUT /servers/{id}", protect(api.handleUpdateServer, "admin"))
+	mux.Handle("DELETE /servers/{id}", protect(api.handleDeleteServer, "admin"))
 
-	mux.HandleFunc("GET /servers/{id}/files", api.handleListFiles)
-	mux.HandleFunc("GET /servers/{id}/files/content", api.handleGetFileContent)
-	mux.HandleFunc("PUT /servers/{id}/files/content", api.handleSaveFileContent)
-	mux.HandleFunc("POST /servers/{id}/files/directory", api.handleCreateDirectory)
-	mux.HandleFunc("DELETE /servers/{id}/files", api.handleDeleteFile)
-	mux.HandleFunc("GET /servers/{id}/files/download", api.handleDownloadFile)
-	mux.HandleFunc("POST /servers/{id}/files/upload", api.handleUploadFile)
+	mux.Handle("GET /servers/{id}/files", protect(api.handleListFiles, ""))
+	mux.Handle("GET /servers/{id}/files/content", protect(api.handleGetFileContent, ""))
+	mux.Handle("PUT /servers/{id}/files/content", protect(api.handleSaveFileContent, ""))
+	mux.Handle("POST /servers/{id}/files/directory", protect(api.handleCreateDirectory, ""))
+	mux.Handle("DELETE /servers/{id}/files", protect(api.handleDeleteFile, ""))
+	mux.Handle("GET /servers/{id}/files/download", protect(api.handleDownloadFile, ""))
+	mux.Handle("POST /servers/{id}/files/upload", protect(api.handleUploadFile, ""))
 
-	mux.HandleFunc("POST /servers/{id}/start", api.handleStartServer)
-	mux.HandleFunc("POST /servers/{id}/stop", api.handleStopServer)
-	mux.HandleFunc("POST /servers/{id}/backup", api.handleBackupServer)
-	mux.HandleFunc("GET /servers/{id}/backups", api.handleListBackupsByServer)
+	mux.Handle("POST /servers/{id}/start", protect(api.handleStartServer, ""))
+	mux.Handle("POST /servers/{id}/stop", protect(api.handleStopServer, ""))
+	mux.Handle("POST /servers/{id}/backup", protect(api.handleBackupServer, ""))
+	mux.Handle("GET /servers/{id}/backups", protect(api.handleListBackupsByServer, ""))
 
-	mux.HandleFunc("GET /backups", api.handleListAllBackups)
-	mux.HandleFunc("DELETE /backups/{name}", api.handleDeleteBackup)
-	mux.HandleFunc("DELETE /backups/progress/{id}", api.handleCancelBackup)
-	mux.HandleFunc("POST /backups/{name}/restore", api.handleRestoreBackup)
+	mux.Handle("GET /backups", protect(api.handleListAllBackups, "admin"))
+	mux.Handle("DELETE /backups/{name}", protect(api.handleDeleteBackup, "admin"))
+	mux.Handle("DELETE /backups/progress/{id}", protect(api.handleCancelBackup, "admin"))
+	mux.Handle("POST /backups/{name}/restore", protect(api.handleRestoreBackup, "admin"))
 
-	mux.HandleFunc("GET /settings/port-range", api.handleGetPortRange)
-	mux.HandleFunc("PUT /settings/port-range", api.handleSetPortRange)
+	mux.Handle("GET /settings/port-range", protect(api.handleGetPortRange, "admin"))
+	mux.Handle("PUT /settings/port-range", protect(api.handleSetPortRange, "admin"))
 
-	mux.HandleFunc("POST /system/restart", api.handleRestartDaemon)
+	mux.Handle("POST /system/restart", protect(api.handleRestartDaemon, "admin"))
+	mux.Handle("GET /updates", protect(api.handleCheckUpdates, "admin"))
 
-	mux.HandleFunc("GET /updates", api.handleCheckUpdates)
+	mux.Handle("GET /ws/servers/{id}/console", protect(api.handleConsole, ""))
+	mux.Handle("GET /ws/progress/{id}", protect(api.handleProgress, ""))
 
-	mux.HandleFunc("GET /ws/servers/{id}/console", api.handleConsole)
-	mux.HandleFunc("GET /ws/progress/{id}", api.handleProgress)
+	mux.Handle("GET /users", protect(api.handleListUsers, "admin"))
+	mux.Handle("POST /users", protect(api.handleCreateUser, "admin"))
+	mux.Handle("PUT /users/permissions", protect(api.handleUpdatePermissions, "admin"))
+	mux.Handle("GET /users/{id}/permissions", protect(api.handleGetPermissions, "admin"))
+	mux.Handle("DELETE /users/{id}", protect(api.handleDeleteUser, "admin"))
+
+	mux.Handle("POST /public-links", protect(api.handleCreatePublicLink, "admin"))
 
 	handler := api.corsMiddleware(mux)
 
@@ -357,6 +381,47 @@ func (api *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	userCtx := r.Context().Value(UserContextKey)
+	if userCtx != nil {
+		claims := userCtx.(map[string]string)
+		role := claims["role"]
+		userID := claims["id"]
+
+		if role != "admin" {
+			perms, err := api.Store.GetPermissions(userID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			allowed := make(map[string]bool)
+			permsMap := make(map[string]domain.Permission)
+			for _, p := range perms {
+				allowed[p.ServerID] = true
+				permsMap[p.ServerID] = p
+			}
+
+			var filtered []domain.Server
+			for _, s := range servers {
+				if allowed[s.ID] {
+					perm := permsMap[s.ID]
+					s.Permissions = &perm
+					filtered = append(filtered, s)
+				}
+			}
+			servers = filtered
+		} else {
+			adminPerm := domain.Permission{
+				CanViewConsole:  true,
+				CanControlPower: true,
+			}
+			for i := range servers {
+				servers[i].Permissions = &adminPerm
+			}
+		}
+	}
+
 	json.NewEncoder(w).Encode(servers)
 }
 
@@ -409,6 +474,13 @@ func (api *Server) handleStartServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !api.checkPermission(r, id, func(p *domain.Permission) bool {
+		return p.CanControlPower || p.CanViewConsole
+	}) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	if err := api.Supervisor.StartServer(id); err != nil {
 		http.Error(w, fmt.Sprintf("Error starting: %v", err), http.StatusBadRequest)
 		return
@@ -447,6 +519,13 @@ func (api *Server) handleGetAllServerStats(w http.ResponseWriter, r *http.Reques
 
 func (api *Server) handleStopServer(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+
+	if !api.checkPermission(r, id, func(p *domain.Permission) bool {
+		return p.CanControlPower || p.CanViewConsole
+	}) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 
 	if err := api.Supervisor.StopServer(id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -568,7 +647,7 @@ func (api *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -577,4 +656,29 @@ func (api *Server) corsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (api *Server) checkPermission(r *http.Request, serverID string, check func(*domain.Permission) bool) bool {
+	userCtx := r.Context().Value(UserContextKey)
+	if userCtx == nil {
+		return false
+	}
+	claims := userCtx.(map[string]string)
+	role := claims["role"]
+	if role == "admin" {
+		return true
+	}
+
+	userID := claims["id"]
+	perms, err := api.Store.GetPermissions(userID)
+	if err != nil {
+		return false
+	}
+
+	for _, p := range perms {
+		if p.ServerID == serverID {
+			return check(&p)
+		}
+	}
+	return false
 }

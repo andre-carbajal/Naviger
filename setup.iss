@@ -8,6 +8,7 @@ AppId={{628b9b2c-84a9-4010-9a9c-10f3b32b538c}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+AppPublisherURL=https://github.com/andre-carbajal/Naviger
 AppCopyright={#MyAppCopyright}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}

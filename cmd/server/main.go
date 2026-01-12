@@ -237,7 +237,7 @@ func startDaemonService(ctx context.Context) {
 		log.Printf("Warning resetting states: %v", err)
 	}
 
-	apiServer := api.NewAPIServer(container)
+	apiServer := api.NewAPIServer(container, cfg)
 	listenAddr := fmt.Sprintf(":%d", config.GetPort())
 
 	httpServer := apiServer.CreateHTTPServer(listenAddr)

@@ -1,9 +1,13 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -21,6 +25,7 @@ type Config struct {
 	BackupsPath  string `json:"backups_path"`
 	RuntimesPath string `json:"runtimes_path"`
 	DatabasePath string `json:"database_path"`
+	JWTSecret    string `json:"-"`
 }
 
 func LoadConfig(configDir string) (*Config, error) {
@@ -44,6 +49,8 @@ func LoadConfig(configDir string) (*Config, error) {
 		return nil, err
 	}
 
+	cfg.JWTSecret = LoadOrGenerateSecret(configDir)
+
 	return &cfg, nil
 }
 
@@ -64,7 +71,32 @@ func createDefaultConfig(configPath, configDir string) (*Config, error) {
 		return nil, err
 	}
 
+	cfg.JWTSecret = LoadOrGenerateSecret(configDir)
 	return &cfg, nil
+}
+
+func LoadOrGenerateSecret(configDir string) string {
+	if envSecret := os.Getenv("NAVIGER_SECRET_KEY"); envSecret != "" {
+		return envSecret
+	}
+
+	secretPath := filepath.Join(configDir, ".naviger_secret")
+
+	data, err := os.ReadFile(secretPath)
+	if err == nil {
+		return string(data)
+	}
+
+	newSecret := make([]byte, 32)
+	if _, err := rand.Read(newSecret); err != nil {
+		return fmt.Sprintf("naviger-secret-%d", time.Now().UnixNano())
+	}
+
+	secretStr := hex.EncodeToString(newSecret)
+
+	_ = os.WriteFile(secretPath, []byte(secretStr), 0600)
+
+	return secretStr
 }
 
 func IsDev() bool {

@@ -2,21 +2,22 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
+	"naviger/internal/domain"
 	"net/http"
 	"path/filepath"
 )
 
 func (api *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if id == "" {
-		http.Error(w, "Missing ID", http.StatusBadRequest)
-		return
-	}
 	path := r.URL.Query().Get("path")
 	if path == "" {
 		path = "/"
+	}
+
+	if !api.checkPermission(r, id, func(p *domain.Permission) bool { return p.CanViewConsole }) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
 	}
 
 	files, err := api.Manager.ListFiles(id, path)
@@ -31,13 +32,14 @@ func (api *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 
 func (api *Server) handleGetFileContent(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if id == "" {
-		http.Error(w, "Missing ID", http.StatusBadRequest)
-		return
-	}
 	path := r.URL.Query().Get("path")
 	if path == "" {
 		http.Error(w, "Missing path", http.StatusBadRequest)
+		return
+	}
+
+	if !api.checkPermission(r, id, func(p *domain.Permission) bool { return p.CanViewConsole }) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -53,23 +55,26 @@ func (api *Server) handleGetFileContent(w http.ResponseWriter, r *http.Request) 
 
 func (api *Server) handleSaveFileContent(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if id == "" {
-		http.Error(w, "Missing ID", http.StatusBadRequest)
-		return
-	}
 	path := r.URL.Query().Get("path")
 	if path == "" {
 		http.Error(w, "Missing path", http.StatusBadRequest)
 		return
 	}
 
-	content, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read body", http.StatusBadRequest)
+	if !api.checkPermission(r, id, func(p *domain.Permission) bool { return p.CanViewConsole }) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
-	if err := api.Manager.WriteFile(id, path, content); err != nil {
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if err := api.Manager.WriteFile(id, path, []byte(req.Content)); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -79,11 +84,6 @@ func (api *Server) handleSaveFileContent(w http.ResponseWriter, r *http.Request)
 
 func (api *Server) handleCreateDirectory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if id == "" {
-		http.Error(w, "Missing ID", http.StatusBadRequest)
-		return
-	}
-
 	var req struct {
 		Path string `json:"path"`
 	}
@@ -91,8 +91,9 @@ func (api *Server) handleCreateDirectory(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-	if req.Path == "" {
-		http.Error(w, "Missing path", http.StatusBadRequest)
+
+	if !api.checkPermission(r, id, func(p *domain.Permission) bool { return p.CanViewConsole }) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -106,13 +107,14 @@ func (api *Server) handleCreateDirectory(w http.ResponseWriter, r *http.Request)
 
 func (api *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if id == "" {
-		http.Error(w, "Missing ID", http.StatusBadRequest)
-		return
-	}
 	path := r.URL.Query().Get("path")
 	if path == "" {
 		http.Error(w, "Missing path", http.StatusBadRequest)
+		return
+	}
+
+	if !api.checkPermission(r, id, func(p *domain.Permission) bool { return p.CanViewConsole }) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -121,54 +123,57 @@ func (api *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (api *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if id == "" {
-		http.Error(w, "Missing ID", http.StatusBadRequest)
-		return
-	}
 	path := r.URL.Query().Get("path")
 	if path == "" {
 		http.Error(w, "Missing path", http.StatusBadRequest)
 		return
 	}
 
-	rc, err := api.Manager.DownloadFile(id, path)
+	if !api.checkPermission(r, id, func(p *domain.Permission) bool { return p.CanViewConsole }) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	fileReader, err := api.Manager.DownloadFile(id, path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer rc.Close()
+	defer fileReader.Close()
 
 	_, filename := filepath.Split(path)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	w.Header().Set("Content-Type", "application/octet-stream")
 
-	io.Copy(w, rc)
+	io.Copy(w, fileReader)
 }
 
 func (api *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if id == "" {
-		http.Error(w, "Missing ID", http.StatusBadRequest)
-		return
-	}
 	dirPath := r.URL.Query().Get("path")
 	if dirPath == "" {
 		dirPath = "/"
 	}
 
+	if !api.checkPermission(r, id, func(p *domain.Permission) bool { return p.CanViewConsole }) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 100<<20)
 	if err := r.ParseMultipartForm(100 << 20); err != nil {
-		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		http.Error(w, "File too large", http.StatusBadRequest)
 		return
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		http.Error(w, "Missing file part", http.StatusBadRequest)
+		http.Error(w, "Invalid file", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()

@@ -1,16 +1,19 @@
-import {useEffect, useRef, useState} from 'react';
-import {WS_HOST} from '../services/api';
+import { useEffect, useRef, useState } from 'react';
+import { WS_HOST } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
 
 export const useConsole = (serverId: string) => {
+    const { token } = useAuth();
     const ws = useRef<WebSocket | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
-        if (!serverId) return;
+        if (!serverId || !token) return;
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const url = `${protocol}//${WS_HOST}/ws/servers/${serverId}/console`;
+        const url = `${protocol}//${WS_HOST}/ws/servers/${serverId}/console?token=${token}`;
 
         console.log(`Connecting to WS: ${url}`);
         ws.current = new WebSocket(url);
@@ -37,7 +40,7 @@ export const useConsole = (serverId: string) => {
         return () => {
             ws.current?.close(1000, 'Component unmounted');
         };
-    }, [serverId]);
+    }, [serverId, token]);
 
     const sendCommand = (cmd: string) => {
         if (ws.current && ws.current.readyState === WebSocket.OPEN) {
@@ -51,5 +54,5 @@ export const useConsole = (serverId: string) => {
         setLogs([]);
     }
 
-    return {logs, sendCommand, isConnected, clearLogs};
+    return { logs, sendCommand, isConnected, clearLogs };
 };

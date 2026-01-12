@@ -1,20 +1,24 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
-import {Copy, Cpu, Folder, HardDrive, MemoryStick, Play, Settings, Square, Terminal} from 'lucide-react';
+import {Copy, Cpu, Folder, HardDrive, MemoryStick, Play, Settings, Share2, Square, Terminal} from 'lucide-react';
 import {api} from '../services/api';
 import type {Server} from '../types';
+import {useAuth} from '../context/AuthContext';
 import {useConsole} from '../hooks/useConsole';
 import {useServerStats} from '../hooks/useServerStats';
 import ConsoleView from '../components/ConsoleView';
 import EditServerModal from '../components/EditServerModal';
 import FileExplorer from '../components/FileExplorer';
+import ShareModal from '../components/ShareModal';
 import {Button} from '../components/ui/Button';
 
 const ServerDetail: React.FC = () => {
     const {id} = useParams<{ id: string }>();
+    const {user} = useAuth();
     const [server, setServer] = useState<Server | null>(null);
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [commandInput, setCommandInput] = useState('');
     const [iconError, setIconError] = useState(false);
     const [iconRefreshKey, setIconRefreshKey] = useState(0);
@@ -70,6 +74,10 @@ const ServerDetail: React.FC = () => {
         } catch (e) {
             console.error(e);
         }
+    };
+
+    const handleShare = () => {
+        setIsShareModalOpen(true);
     };
 
     const handleSaveSettings = async (data: { name: string; ram: number; customArgs?: string; icon?: File }) => {
@@ -200,6 +208,11 @@ const ServerDetail: React.FC = () => {
                         <Button variant="danger" onClick={handleStop}
                                 disabled={server.status === 'STARTING' || server.status === 'STOPPING'}>
                             <Square size={18}/> Stop
+                        </Button>
+                    )}
+                    {user?.role === 'admin' && (
+                        <Button variant="secondary" onClick={handleShare} title="Create Public Link">
+                            <Share2 size={18}/>
                         </Button>
                     )}
                     <Button variant="secondary" onClick={() => setIsEditModalOpen(true)}>
@@ -338,6 +351,11 @@ const ServerDetail: React.FC = () => {
                 onClose={() => setIsEditModalOpen(false)}
                 onSave={handleSaveSettings}
                 server={server}
+            />
+            <ShareModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                serverId={server.id}
             />
         </div>
     );

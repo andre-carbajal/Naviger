@@ -32,6 +32,26 @@ type Setting struct {
 	Value string
 }
 
+type User struct {
+	ID       string `gorm:"primaryKey"`
+	Username string `gorm:"uniqueIndex"`
+	Password string
+	Role     string
+}
+
+type Permission struct {
+	UserID          string `gorm:"primaryKey"`
+	ServerID        string `gorm:"primaryKey"`
+	CanViewConsole  bool
+	CanControlPower bool
+}
+
+type PublicLink struct {
+	Token    string `gorm:"primaryKey"`
+	ServerID string
+	Action   string
+}
+
 type GormStore struct {
 	db *gorm.DB
 }
@@ -50,7 +70,7 @@ func NewGormStore(path string) (*GormStore, error) {
 		return nil, err
 	}
 
-	err = db.AutoMigrate(&Server{}, &Setting{})
+	err = db.AutoMigrate(&Server{}, &Setting{}, &User{}, &Permission{}, &PublicLink{})
 	if err != nil {
 		return nil, fmt.Errorf("error migrating database: %w", err)
 	}
@@ -246,4 +266,160 @@ func (s *GormStore) SetPortRange(start int, end int) error {
 	}
 
 	return nil
+}
+
+func (s *GormStore) CreateUser(user *domain.User) error {
+	gormUser := &User{
+		ID:       user.ID,
+		Username: user.Username,
+		Password: user.Password,
+		Role:     user.Role,
+	}
+	return s.db.Create(gormUser).Error
+}
+
+func (s *GormStore) GetUserByUsername(username string) (*domain.User, error) {
+	var gormUser User
+	err := s.db.Where("username = ?", username).First(&gormUser).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &domain.User{
+		ID:       gormUser.ID,
+		Username: gormUser.Username,
+		Password: gormUser.Password,
+		Role:     gormUser.Role,
+	}, nil
+}
+
+func (s *GormStore) GetUserByID(id string) (*domain.User, error) {
+	var gormUser User
+	err := s.db.Where("id = ?", id).First(&gormUser).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &domain.User{
+		ID:       gormUser.ID,
+		Username: gormUser.Username,
+		Password: gormUser.Password,
+		Role:     gormUser.Role,
+	}, nil
+}
+
+func (s *GormStore) ListUsers() ([]domain.User, error) {
+	var gormUsers []User
+	if err := s.db.Find(&gormUsers).Error; err != nil {
+		return nil, err
+	}
+	var users []domain.User
+	for _, u := range gormUsers {
+		users = append(users, domain.User{
+			ID:       u.ID,
+			Username: u.Username,
+			Role:     u.Role,
+		})
+	}
+	return users, nil
+}
+
+func (s *GormStore) DeleteUser(id string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&User{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&Permission{}, "user_id = ?", id).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (s *GormStore) SetPermissions(permissions []domain.Permission) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if len(permissions) == 0 {
+			return nil
+		}
+		userID := permissions[0].UserID
+		if err := tx.Delete(&Permission{}, "user_id = ?", userID).Error; err != nil {
+			return err
+		}
+
+		for _, p := range permissions {
+			gormPerm := Permission{
+				UserID:          p.UserID,
+				ServerID:        p.ServerID,
+				CanViewConsole:  p.CanViewConsole,
+				CanControlPower: p.CanControlPower,
+			}
+			if err := tx.Save(&gormPerm).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (s *GormStore) GetPermissions(userID string) ([]domain.Permission, error) {
+	var gormPerms []Permission
+	if err := s.db.Where("user_id = ?", userID).Find(&gormPerms).Error; err != nil {
+		return nil, err
+	}
+	var perms []domain.Permission
+	for _, p := range gormPerms {
+		perms = append(perms, domain.Permission{
+			UserID:          p.UserID,
+			ServerID:        p.ServerID,
+			CanViewConsole:  p.CanViewConsole,
+			CanControlPower: p.CanControlPower,
+		})
+	}
+	return perms, nil
+}
+
+func (s *GormStore) CreatePublicLink(link *domain.PublicLink) error {
+	return s.db.Create(&PublicLink{
+		Token:    link.Token,
+		ServerID: link.ServerID,
+		Action:   link.Action,
+	}).Error
+}
+
+func (s *GormStore) GetPublicLink(token string) (*domain.PublicLink, error) {
+	var l PublicLink
+	if err := s.db.Where("token = ?", token).First(&l).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &domain.PublicLink{
+		Token:    l.Token,
+		ServerID: l.ServerID,
+		Action:   l.Action,
+	}, nil
+}
+
+func (s *GormStore) GetPublicLinkByServerID(serverID string) (*domain.PublicLink, error) {
+	var l PublicLink
+	if err := s.db.Where("server_id = ?", serverID).First(&l).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &domain.PublicLink{
+		Token:    l.Token,
+		ServerID: l.ServerID,
+		Action:   l.Action,
+	}, nil
+}
+
+func (s *GormStore) DeletePublicLink(token string) error {
+	return s.db.Delete(&PublicLink{}, "token = ?", token).Error
 }

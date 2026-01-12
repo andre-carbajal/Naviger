@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type {Backup, FileEntry, Server, ServerStats} from '../types';
+import type {Backup, FileEntry, Permission, Server, ServerStats} from '../types';
 
 const API_PORT = import.meta.env.VITE_API_PORT || 23008;
 const API_HOST = window.location.hostname;
@@ -12,6 +12,14 @@ const apiInstance = axios.create({
     headers: {
         'Content-Type': 'application/json',
     }
+});
+
+apiInstance.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
 });
 
 apiInstance.interceptors.response.use(
@@ -104,4 +112,26 @@ export const api = {
             }
         });
     },
+    login: (username: string, password: string) => apiInstance.post('/auth/login', {username, password}),
+    setup: (username: string, password: string) => apiInstance.post('/auth/setup', {username, password}),
+    getMe: () => apiInstance.get('/auth/me'),
+    listUsers: () => apiInstance.get('/users'),
+    createUser: (data: { username: string; password?: string }) => apiInstance.post('/users', data),
+    deleteUser: (id: string) => apiInstance.delete(`/users/${id}`),
+    updatePermissions: (perms: Permission[]) => apiInstance.put('/users/permissions', perms),
+    getPermissions: (userId: string) => apiInstance.get(`/users/${userId}/permissions`),
+    createPublicLink: (serverId: string) => apiInstance.post<{
+        token: string,
+        serverId: string,
+        action: string
+    }>('/public-links', {serverId}),
+    deletePublicLink: (token: string) => apiInstance.delete(`/public-links/${token}`),
+    getPublicServerInfo: (token: string) => apiInstance.get<{
+        name: string,
+        version: string,
+        loader: string,
+        status: string,
+        id: string
+    }>(`/public-links/${token}`),
+    accessPublicLink: (token: string, action: 'start' | 'stop') => apiInstance.post(`/public-links/${token}/access`, {action}),
 };

@@ -1,12 +1,14 @@
 import React, {useEffect, useState} from 'react';
 import {NavLink, Outlet} from 'react-router-dom';
-import {ArrowUpCircle, DatabaseBackup, LayoutDashboard, Settings} from 'lucide-react';
+import {ArrowUpCircle, DatabaseBackup, LayoutDashboard, LogOut, Settings, Users} from 'lucide-react';
 import '../App.css';
-import {api} from "../services/api.ts";
+import {api} from "../services/api";
+import {useAuth} from "../context/AuthContext";
 
 const Layout: React.FC = () => {
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const [releaseUrl, setReleaseUrl] = useState('');
+    const {user, logout} = useAuth();
 
     useEffect(() => {
         api.checkUpdates().then(response => {
@@ -34,10 +36,18 @@ const Layout: React.FC = () => {
                         <DatabaseBackup size={20}/>
                         <span>Backups</span>
                     </NavLink>
-                    <NavLink to="/settings" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
-                        <Settings size={20}/>
-                        <span>Settings</span>
-                    </NavLink>
+                    {user?.role === 'admin' && (
+                        <NavLink to="/users" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
+                            <Users size={20}/>
+                            <span>Users</span>
+                        </NavLink>
+                    )}
+                    {user?.role === 'admin' && (
+                        <NavLink to="/settings" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
+                            <Settings size={20}/>
+                            <span>Settings</span>
+                        </NavLink>
+                    )}
                 </nav>
                 {updateAvailable && (
                     <div className="update-notification">
@@ -50,7 +60,12 @@ const Layout: React.FC = () => {
             </aside>
             <main className="content">
                 <header className="topbar">
-                    <div className="user-info">Admin</div>
+                    <div className="user-info" style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                        <span>{user?.username} ({user?.role})</span>
+                        <button onClick={logout} className="icon-action" title="Logout">
+                            <LogOut size={18}/>
+                        </button>
+                    </div>
                 </header>
                 <div className="page-content">
                     <Outlet/>

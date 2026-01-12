@@ -8,6 +8,8 @@ import CreateBackupModal from '../components/CreateBackupModal';
 import RestoreBackupModal from '../components/RestoreBackupModal';
 import {useServers} from '../hooks/useServers';
 import {v4 as uuidv4} from 'uuid';
+import {useAuth} from '../context/AuthContext';
+
 
 interface CreatingBackup extends Backup {
     serverId: string;
@@ -15,6 +17,7 @@ interface CreatingBackup extends Backup {
 
 const Backups: React.FC = () => {
     const {id} = useParams<{ id: string }>();
+    const {token} = useAuth();
     const [backups, setBackups] = useState<Backup[]>([]);
     const [creatingBackups, setCreatingBackups] = useState<CreatingBackup[]>([]);
     const {servers, refresh: refreshServers} = useServers();
@@ -62,10 +65,10 @@ const Backups: React.FC = () => {
     }, []);
 
     const trackProgress = useCallback((requestId: string) => {
-        if (activeSockets.current.has(requestId)) return;
+        if (activeSockets.current.has(requestId) || !token) return;
 
         activeSockets.current.add(requestId);
-        const ws = new WebSocket(`ws://${WS_HOST}/ws/progress/${requestId}`);
+        const ws = new WebSocket(`ws://${WS_HOST}/ws/progress/${requestId}?token=${token}`);
         wsMap.current.set(requestId, ws);
 
         ws.onmessage = (event) => {
@@ -97,7 +100,8 @@ const Backups: React.FC = () => {
             activeSockets.current.delete(requestId);
             wsMap.current.delete(requestId);
         };
-    }, [fetchBackups, removeCreatingBackup]);
+    }, [fetchBackups, removeCreatingBackup, token]);
+
 
     useEffect(() => {
         const stored = localStorage.getItem('creating_backups');
@@ -112,7 +116,7 @@ const Backups: React.FC = () => {
                 console.error(e);
             }
         }
-    }, [trackProgress]);
+    }, [trackProgress, token]);
 
 
     const handleCreateBackup = async (serverId: string, name: string) => {
