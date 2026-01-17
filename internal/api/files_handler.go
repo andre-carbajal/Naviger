@@ -66,15 +66,13 @@ func (api *Server) handleSaveFileContent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req struct {
-		Content string `json:"content"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	content, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusInternalServerError)
 		return
 	}
 
-	if err := api.Manager.WriteFile(id, path, []byte(req.Content)); err != nil {
+	if err := api.Manager.WriteFile(id, path, content); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
