@@ -121,19 +121,37 @@ const PublicServer: React.FC = () => {
 
                 {message && (
                     <div
-                        className="bg-green-500/20 text-green-400 p-3 rounded-lg mb-4 flex items-center justify-center gap-2">
+                        className="bg-green-500/20 text-green-400 p-3 rounded-lg"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            marginTop: '16px',
+                            marginBottom: '16px'
+                        }}
+                    >
                         <Check size={18}/> {message}
                     </div>
                 )}
 
                 {error && (
                     <div
-                        className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4 flex items-center justify-center gap-2">
+                        className="bg-red-500/20 text-red-400 p-3 rounded-lg"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            marginTop: '16px',
+                            marginBottom: '16px'
+                        }}
+                    >
                         <AlertCircle size={18}/> {error}
                     </div>
                 )}
 
-                <div className="flex gap-3 justify-center">
+                <div className="flex gap-3 justify-center mt-6">
                     {info.status === 'OFFLINE' || info.status === 'STOPPED' ? (
                         <button
                             className="btn btn-primary"
@@ -152,6 +170,7 @@ const PublicServer: React.FC = () => {
                             style={{
                                 flex: 1, padding: '12px',
                                 backgroundColor: '#ef4444',
+                                color: 'white',
                                 opacity: (isStopping || info.status === 'STARTING') ? 0.5 : 1
                             }}
                         >
@@ -162,7 +181,15 @@ const PublicServer: React.FC = () => {
                 </div>
             </div>
 
-            <div className="fixed bottom-4 text-gray-500 text-sm">
+            <div style={{
+                position: 'fixed',
+                bottom: '1rem',
+                left: 0,
+                width: '100%',
+                textAlign: 'center',
+                color: '#6b7280',
+                fontSize: '0.875rem'
+            }}>
                 Powered by Naviger
             </div>
         </div>

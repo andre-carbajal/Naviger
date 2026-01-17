@@ -1,1 +1,1 @@
-- The bug that causes a cmd console to appear on Windows operating systems when starting a server has been fixed.
+- enhance message display styles and improve layout in PublicServer component
