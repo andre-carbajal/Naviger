@@ -19,33 +19,38 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
     const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+    const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const initAuth = async () => {
-            if (token) {
-                try {
-                    const response = await api.getMe();
-                    setUser(response.data);
-                } catch (error) {
+            try {
+                const response = await api.getMe();
+                setUser(response.data);
+                setToken("valid");
+            } catch (error: any) {
+                if (error.response?.status !== 401) {
                     console.error("Auth check failed", error);
-                    logout();
                 }
+                setUser(null);
+                setToken(null);
             }
             setLoading(false);
         };
         initAuth();
-    }, [token]);
+    }, []);
 
-    const login = (newToken: string, newUser: User) => {
-        localStorage.setItem('token', newToken);
-        setToken(newToken);
+    const login = (_newToken: string, newUser: User) => {
+        setToken("valid");
         setUser(newUser);
     };
 
-    const logout = () => {
-        localStorage.removeItem('token');
+    const logout = async () => {
+        try {
+            await api.logout();
+        } catch (error) {
+            console.error("Logout failed", error);
+        }
         setToken(null);
         setUser(null);
     };

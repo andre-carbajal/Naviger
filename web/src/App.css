@@ -10,6 +10,84 @@
     --danger-color: #f44336;
 }
 
+.input-field,
+.form-input,
+.form-select,
+textarea,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"] {
+    width: 100%;
+    background-color: #1a1a1a;
+    border: 1px solid rgb(32, 36, 43);
+    color: #e5e7eb;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    outline: none;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+}
+
+.input-field:focus,
+.form-input:focus,
+.form-select:focus,
+textarea:focus,
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus {
+    border-color: #1a1a1a;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input-field::placeholder,
+.form-input::placeholder,
+textarea::placeholder,
+input[type="text"]::placeholder,
+input[type="password"]::placeholder,
+input[type="email"]::placeholder,
+input[type="number"]::placeholder {
+    color: #9ca3af;
+}
+
+input[type="checkbox"] {
+    appearance: none;
+    background-color: #1a1a1a;
+    margin: 0;
+    font: inherit;
+    color: currentColor;
+    width: 1.25em;
+    height: 1.25em;
+    border: 1px solid rgb(32, 36, 43);
+    border-radius: 0.25em;
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+input[type="checkbox"]::before {
+    content: "";
+    width: 0.65em;
+    height: 0.65em;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em white;
+    transform-origin: center;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
 body {
     margin: 0;
     display: flex;
@@ -179,24 +257,7 @@ nav {
     color: var(--text-muted);
 }
 
-.form-input,
-.form-select {
-    width: 100%;
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    background-color: #1a1a1a;
-    color: white;
-    font-family: inherit;
-    box-sizing: border-box;
-    /* Important for width 100% */
-}
 
-.form-input:focus,
-.form-select:focus {
-    outline: 2px solid var(--primary);
-    border-color: transparent;
-}
 
 .modal-actions {
     display: flex;
@@ -299,7 +360,7 @@ nav {
     gap: 1rem;
 }
 
-.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+.space-y-4> :not([hidden])~ :not([hidden]) {
     --tw-space-y-reverse: 0;
     margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
     margin-bottom: calc(1rem * var(--tw-space-y-reverse));
@@ -309,7 +370,7 @@ nav {
     margin-top: 1rem;
 }
 
-.space-x-2 > :not([hidden]) ~ :not([hidden]) {
+.space-x-2> :not([hidden])~ :not([hidden]) {
     --tw-space-x-reverse: 0;
     margin-right: calc(0.5rem * var(--tw-space-x-reverse));
     margin-left: calc(0.5rem * calc(1 - var(--tw-space-x-reverse)));

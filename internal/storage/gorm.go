@@ -340,6 +340,10 @@ func (s *GormStore) DeleteUser(id string) error {
 	})
 }
 
+func (s *GormStore) UpdatePassword(userID string, hashedPassword string) error {
+	return s.db.Model(&User{}).Where("id = ?", userID).Update("password", hashedPassword).Error
+}
+
 func (s *GormStore) SetPermissions(permissions []domain.Permission) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if len(permissions) == 0 {

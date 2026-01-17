@@ -9,17 +9,10 @@ export const WS_HOST = `${API_HOST}:${API_PORT}`;
 const apiInstance = axios.create({
     baseURL: `${API_PROTOCOL}//${API_HOST}:${API_PORT}`,
     timeout: 5000,
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     }
-});
-
-apiInstance.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
 });
 
 apiInstance.interceptors.response.use(
@@ -113,11 +106,13 @@ export const api = {
         });
     },
     login: (username: string, password: string) => apiInstance.post('/auth/login', {username, password}),
+    logout: () => apiInstance.post('/auth/logout'),
     setup: (username: string, password: string) => apiInstance.post('/auth/setup', {username, password}),
     getMe: () => apiInstance.get('/auth/me'),
     listUsers: () => apiInstance.get('/users'),
     createUser: (data: { username: string; password?: string }) => apiInstance.post('/users', data),
     deleteUser: (id: string) => apiInstance.delete(`/users/${id}`),
+    updatePassword: (id: string, password: string) => apiInstance.put(`/users/${id}/password`, {password}),
     updatePermissions: (perms: Permission[]) => apiInstance.put('/users/permissions', perms),
     getPermissions: (userId: string) => apiInstance.get(`/users/${userId}/permissions`),
     createPublicLink: (serverId: string) => apiInstance.post<{

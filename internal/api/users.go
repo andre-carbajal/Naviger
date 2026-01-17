@@ -72,6 +72,15 @@ func (api *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userCtx := r.Context().Value(UserContextKey)
+	if userCtx != nil {
+		claims := userCtx.(map[string]string)
+		if claims["id"] == id {
+			http.Error(w, "Cannot delete your own account", http.StatusBadRequest)
+			return
+		}
+	}
+
 	if err := api.Store.DeleteUser(id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -116,4 +125,49 @@ func (api *Server) handleGetPermissions(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(perms)
+}
+
+func (api *Server) handleUpdatePassword(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Missing ID", http.StatusBadRequest)
+		return
+	}
+
+	userCtx := r.Context().Value(UserContextKey)
+	if userCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	claims := userCtx.(map[string]string)
+	if claims["role"] != "admin" && claims["id"] != id {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.Password == "" {
+		http.Error(w, "Password cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Error hashing password", http.StatusInternalServerError)
+		return
+	}
+
+	if err := api.Store.UpdatePassword(id, string(hashedPassword)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

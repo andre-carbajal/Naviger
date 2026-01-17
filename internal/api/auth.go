@@ -61,11 +61,32 @@ func (api *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    tokenString,
+		Expires:  time.Now().Add(time.Hour * 24 * 7),
+		HttpOnly: true,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(LoginResponse{
-		Token: tokenString,
+		Token: "",
 		User:  user,
 	})
+}
+
+func (api *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.WriteHeader(http.StatusOK)
 }
 
 func (api *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
@@ -115,9 +136,18 @@ func (api *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	})
 	tokenString, _ := token.SignedString([]byte(api.Config.JWTSecret))
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    tokenString,
+		Expires:  time.Now().Add(time.Hour * 24 * 7),
+		HttpOnly: true,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(LoginResponse{
-		Token: tokenString,
+		Token: "",
 		User:  newUser,
 	})
 }

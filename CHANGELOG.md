@@ -1,1 +1,2 @@
 - Implement user authentication and authorization features, including login, user management, and JWT support
+- Add user password update functionality and improve authentication handling

@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"naviger/internal/api"
-	"naviger/internal/app"
 	"naviger/internal/backup"
 	"naviger/internal/config"
 	"naviger/internal/jvm"
@@ -224,20 +223,11 @@ func startDaemonService(ctx context.Context) {
 	supervisor := runner.NewSupervisor(store, jvmMgr, hubManager, cfg.ServersPath)
 	backupManager := backup.NewManager(cfg.ServersPath, cfg.BackupsPath, store)
 
-	container := &app.Container{
-		Store:         store,
-		JvmManager:    jvmMgr,
-		ServerManager: srvMgr,
-		HubManager:    hubManager,
-		Supervisor:    supervisor,
-		BackupManager: backupManager,
-	}
-
 	if err := supervisor.ResetRunningStates(); err != nil {
 		log.Printf("Warning resetting states: %v", err)
 	}
 
-	apiServer := api.NewAPIServer(container, cfg)
+	apiServer := api.NewAPIServer(srvMgr, supervisor, store, hubManager, backupManager, cfg)
 	listenAddr := fmt.Sprintf(":%d", config.GetPort())
 
 	httpServer := apiServer.CreateHTTPServer(listenAddr)

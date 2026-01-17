@@ -6,7 +6,6 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	"naviger/internal/app"
 	"naviger/internal/backup"
 	"naviger/internal/config"
 	"naviger/internal/domain"
@@ -30,13 +29,20 @@ type Server struct {
 	Config        *config.Config
 }
 
-func NewAPIServer(container *app.Container, cfg *config.Config) *Server {
+func NewAPIServer(
+	manager *server.Manager,
+	supervisor *runner.Supervisor,
+	store *storage.GormStore,
+	hubManager *ws.HubManager,
+	backupManager *backup.Manager,
+	cfg *config.Config,
+) *Server {
 	return &Server{
-		Manager:       container.ServerManager,
-		Supervisor:    container.Supervisor,
-		Store:         container.Store,
-		HubManager:    container.HubManager,
-		BackupManager: container.BackupManager,
+		Manager:       manager,
+		Supervisor:    supervisor,
+		Store:         store,
+		HubManager:    hubManager,
+		BackupManager: backupManager,
 		Config:        cfg,
 	}
 }
@@ -76,6 +82,7 @@ func (api *Server) CreateHTTPServer(listenAddr string) *http.Server {
 	})
 
 	mux.HandleFunc("POST /auth/login", api.handleLogin)
+	mux.HandleFunc("POST /auth/logout", api.handleLogout)
 	mux.HandleFunc("POST /auth/setup", api.handleSetup)
 	mux.HandleFunc("POST /public-links/{token}/access", api.handleAccessPublicLink)
 	mux.HandleFunc("GET /public-links/{token}", api.handleGetPublicServerInfo)
@@ -133,6 +140,7 @@ func (api *Server) CreateHTTPServer(listenAddr string) *http.Server {
 	mux.Handle("PUT /users/permissions", protect(api.handleUpdatePermissions, "admin"))
 	mux.Handle("GET /users/{id}/permissions", protect(api.handleGetPermissions, "admin"))
 	mux.Handle("DELETE /users/{id}", protect(api.handleDeleteUser, "admin"))
+	mux.Handle("PUT /users/{id}/password", protect(api.handleUpdatePassword, ""))
 
 	mux.Handle("POST /public-links", protect(api.handleCreatePublicLink, "admin"))
 
@@ -645,9 +653,13 @@ func (api *Server) handleCancelBackup(w http.ResponseWriter, r *http.Request) {
 
 func (api *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)

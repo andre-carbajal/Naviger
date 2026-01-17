@@ -25,7 +25,7 @@ const Login: React.FC = () => {
             }
 
             const data = response.data;
-            login(data.token, data.user);
+            login("", data.user);
             navigate('/');
         } catch (err: any) {
             console.error(err);

@@ -1,17 +1,21 @@
 import React, {useEffect, useState} from 'react';
 import {api} from '../services/api';
 import type {User} from '../types';
-import {Key, Trash2, UserPlus} from 'lucide-react';
+import {Key, Lock, Trash2, UserPlus} from 'lucide-react';
 import '../App.css';
 import CreateUserModal from '../components/CreateUserModal';
 import PermissionsModal from '../components/PermissionsModal';
+import ChangePasswordModal from '../components/ChangePasswordModal';
+import {useAuth} from '../context/AuthContext';
 
 const UsersPage: React.FC = () => {
+    const {user: currentUser} = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingPermissionsUser, setEditingPermissionsUser] = useState<User | null>(null);
+    const [changingPasswordUser, setChangingPasswordUser] = useState<User | null>(null);
 
     const fetchUsers = async () => {
         try {
@@ -78,18 +82,32 @@ const UsersPage: React.FC = () => {
                                 <td>
                                     <div className="actions-group" style={{border: 'none', padding: 0, margin: 0}}>
                                         {user.role !== 'admin' && (
-                                            <button
-                                                className="icon-action"
-                                                title="Permissions"
-                                                onClick={() => setEditingPermissionsUser(user)}
-                                            >
-                                                <Key size={18}/>
-                                            </button>
+                                            <>
+                                                <button
+                                                    className="icon-action"
+                                                    title="Permissions"
+                                                    onClick={() => setEditingPermissionsUser(user)}
+                                                >
+                                                    <Key size={18}/>
+                                                </button>
+                                                <button
+                                                    className="icon-action"
+                                                    title="Change Password"
+                                                    onClick={() => setChangingPasswordUser(user)}
+                                                >
+                                                    <Lock size={18}/>
+                                                </button>
+                                            </>
                                         )}
                                         <button
                                             className="icon-action danger"
                                             title="Delete"
                                             onClick={() => handleDelete(user.id)}
+                                            disabled={currentUser?.id === user.id}
+                                            style={{
+                                                opacity: currentUser?.id === user.id ? 0.5 : 1,
+                                                cursor: currentUser?.id === user.id ? 'not-allowed' : 'pointer'
+                                            }}
                                         >
                                             <Trash2 size={18}/>
                                         </button>
@@ -115,8 +133,16 @@ const UsersPage: React.FC = () => {
                     onClose={() => setEditingPermissionsUser(null)}
                 />
             )}
+
+            {changingPasswordUser && (
+                <ChangePasswordModal
+                    user={changingPasswordUser}
+                    onClose={() => setChangingPasswordUser(null)}
+                />
+            )}
         </div>
     );
 };
+
 
 export default UsersPage;

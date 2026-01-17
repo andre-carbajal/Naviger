@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { api } from '../services/api';
-import type { User, Server, Permission } from '../types';
-import { X, Key } from 'lucide-react';
+import React, {useEffect, useState} from 'react';
+import {api} from '../services/api';
+import type {Permission, Server, User} from '../types';
+import {Key, X} from 'lucide-react';
 
 interface Props {
     user: User;
     onClose: () => void;
 }
 
-const PermissionsModal: React.FC<Props> = ({ user, onClose }) => {
+const PermissionsModal: React.FC<Props> = ({user, onClose}) => {
     const [servers, setServers] = useState<Server[]>([]);
     const [permissions, setPermissions] = useState<Record<string, Permission>>({});
     const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ const PermissionsModal: React.FC<Props> = ({ user, onClose }) => {
                 setServers(serversRes.data);
 
                 const permsMap: Record<string, Permission> = {};
-                permsRes.data.forEach((p: Permission) => {
+                (permsRes.data || []).forEach((p: Permission) => {
                     permsMap[p.serverId] = p;
                 });
                 setPermissions(permsMap);
@@ -49,7 +49,7 @@ const PermissionsModal: React.FC<Props> = ({ user, onClose }) => {
                 canControlPower: false
             };
 
-            const updated = { ...current, [field]: checked };
+            const updated = {...current, [field]: checked};
 
             if (field === 'canViewConsole' && checked) {
                 updated.canControlPower = true;
@@ -79,14 +79,14 @@ const PermissionsModal: React.FC<Props> = ({ user, onClose }) => {
 
     return (
         <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '700px' }}>
+            <div className="modal-content" style={{maxWidth: '700px'}}>
                 <div className="modal-header">
                     <h2 className="modal-title flex items-center gap-4">
-                        <Key size={24} className="text-blue-500" />
+                        <Key size={24} className="text-blue-500"/>
                         Permissions for {user.username}
                     </h2>
                     <button className="icon-action" onClick={onClose}>
-                        <X size={20} />
+                        <X size={20}/>
                     </button>
                 </div>
 
@@ -95,38 +95,38 @@ const PermissionsModal: React.FC<Props> = ({ user, onClose }) => {
                 {loading ? (
                     <div>Loading...</div>
                 ) : (
-                    <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                    <div style={{maxHeight: '60vh', overflowY: 'auto'}}>
                         <table className="data-table">
                             <thead>
-                                <tr>
-                                    <th>Server</th>
-                                    <th className="text-center">Power Control</th>
-                                    <th className="text-center">Console & Files</th>
-                                </tr>
+                            <tr>
+                                <th>Server</th>
+                                <th className="text-center">Power Control</th>
+                                <th className="text-center">Console & Files</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                {servers.map(server => {
-                                    const perm = permissions[server.id] || {};
-                                    return (
-                                        <tr key={server.id}>
-                                            <td>{server.name}</td>
-                                            <td className="text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={perm.canControlPower || false}
-                                                    onChange={(e) => handleCheck(server.id, 'canControlPower', e.target.checked)}
-                                                />
-                                            </td>
-                                            <td className="text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={perm.canViewConsole || false}
-                                                    onChange={(e) => handleCheck(server.id, 'canViewConsole', e.target.checked)}
-                                                />
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                            {servers.map(server => {
+                                const perm = permissions[server.id] || {};
+                                return (
+                                    <tr key={server.id}>
+                                        <td>{server.name}</td>
+                                        <td className="text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={perm.canControlPower || false}
+                                                onChange={(e) => handleCheck(server.id, 'canControlPower', e.target.checked)}
+                                            />
+                                        </td>
+                                        <td className="text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={perm.canViewConsole || false}
+                                                onChange={(e) => handleCheck(server.id, 'canViewConsole', e.target.checked)}
+                                            />
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             </tbody>
                         </table>
                     </div>

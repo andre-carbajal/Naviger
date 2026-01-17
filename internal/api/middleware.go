@@ -18,11 +18,18 @@ const (
 func (api *Server) AuthMiddleware(next http.Handler, requiredRole string, secretKey string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var tokenString string
-		authHeader := r.Header.Get("Authorization")
-		if authHeader != "" {
-			parts := strings.Split(authHeader, " ")
-			if len(parts) == 2 && parts[0] == "Bearer" {
-				tokenString = parts[1]
+		cookie, err := r.Cookie("token")
+		if err == nil {
+			tokenString = cookie.Value
+		}
+
+		if tokenString == "" {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" {
+				parts := strings.Split(authHeader, " ")
+				if len(parts) == 2 && parts[0] == "Bearer" {
+					tokenString = parts[1]
+				}
 			}
 		}
 
