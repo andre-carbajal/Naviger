@@ -107,6 +107,8 @@ func (s *Supervisor) StartServer(serverID string) error {
 		return err
 	}
 
+	prepareCommand(cmd)
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return err

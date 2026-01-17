@@ -1,2 +1,1 @@
-- Implement user authentication and authorization features, including login, user management, and JWT support
-- Add user password update functionality and improve authentication handling
+- The bug that causes a cmd console to appear on Windows operating systems when starting a server has been fixed.
