@@ -17,6 +17,18 @@ const (
 
 func (api *Server) AuthMiddleware(next http.Handler, requiredRole string, secretKey string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Naviger-Client") == "CLI" {
+			remoteAddr := r.RemoteAddr
+			if strings.HasPrefix(remoteAddr, "127.0.0.1") || strings.HasPrefix(remoteAddr, "[::1]") {
+				ctx := context.WithValue(r.Context(), UserContextKey, map[string]string{
+					"id":   "cli",
+					"role": "admin",
+				})
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+		}
+
 		var tokenString string
 		cookie, err := r.Cookie("token")
 		if err == nil {

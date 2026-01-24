@@ -26,8 +26,31 @@ func (c *Client) BaseURL() string {
 	return c.baseURL
 }
 
+func (c *Client) doRequest(method, path string, body interface{}) (*http.Response, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		jsonData, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		bodyReader = bytes.NewBuffer(jsonData)
+	}
+
+	req, err := http.NewRequest(method, c.baseURL+path, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-Naviger-Client", "CLI")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	return c.httpClient.Do(req)
+}
+
 func (c *Client) get(path string, target interface{}) error {
-	resp, err := c.httpClient.Get(c.baseURL + path)
+	resp, err := c.doRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return err
 	}
@@ -46,16 +69,7 @@ func (c *Client) get(path string, target interface{}) error {
 }
 
 func (c *Client) post(path string, body interface{}, target interface{}) error {
-	var bodyReader io.Reader
-	if body != nil {
-		jsonData, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		bodyReader = bytes.NewBuffer(jsonData)
-	}
-
-	resp, err := c.httpClient.Post(c.baseURL+path, "application/json", bodyReader)
+	resp, err := c.doRequest(http.MethodPost, path, body)
 	if err != nil {
 		return err
 	}
@@ -77,12 +91,7 @@ func (c *Client) post(path string, body interface{}, target interface{}) error {
 }
 
 func (c *Client) delete(path string) error {
-	req, err := http.NewRequest(http.MethodDelete, c.baseURL+path, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doRequest(http.MethodDelete, path, nil)
 	if err != nil {
 		return err
 	}
@@ -100,22 +109,7 @@ func (c *Client) delete(path string) error {
 }
 
 func (c *Client) put(path string, body interface{}) error {
-	var bodyReader io.Reader
-	if body != nil {
-		jsonData, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		bodyReader = bytes.NewBuffer(jsonData)
-	}
-
-	req, err := http.NewRequest(http.MethodPut, c.baseURL+path, bodyReader)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doRequest(http.MethodPut, path, body)
 	if err != nil {
 		return err
 	}

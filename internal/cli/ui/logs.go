@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"naviger/pkg/sdk"
+	"net/http"
 	"os"
 	"os/signal"
 
@@ -241,7 +242,10 @@ func RunLogs(client *sdk.Client, id string) bool {
 		log.Fatal("Error parsing base URL:", err)
 	}
 
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	header := http.Header{}
+	header.Set("X-Naviger-Client", "CLI")
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
 	if err != nil {
 		fmt.Printf("Error connecting to logs: %v\nPress Enter to continue...", err)
 		fmt.Scanln()

@@ -1,2 +1,1 @@
-- Enhance message display styles and improve layout in PublicServer component
-- Fix issues saving .properties files in the text editor
+- Fix Cli authentication issue

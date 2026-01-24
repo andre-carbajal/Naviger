@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"naviger/pkg/sdk"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -437,10 +438,13 @@ func connectToProgress(client *sdk.Client, id string) tea.Cmd {
 			return errMsg(err)
 		}
 
-		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		header := http.Header{}
+		header.Set("X-Naviger-Client", "CLI")
+
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
 		if err != nil {
 			time.Sleep(500 * time.Millisecond)
-			conn, _, err = websocket.DefaultDialer.Dial(wsURL, nil)
+			conn, _, err = websocket.DefaultDialer.Dial(wsURL, header)
 			if err != nil {
 				return errMsg(err)
 			}
