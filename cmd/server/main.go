@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -219,7 +220,13 @@ func startDaemonService(ctx context.Context) {
 
 	jvmMgr := jvm.NewManager(cfg.RuntimesPath)
 	srvMgr := server.NewManager(cfg.ServersPath, store)
-	hubManager := ws.NewHubManager()
+	bufferSize := cfg.LogBufferSize
+	if val, err := store.GetSetting("log_buffer_size"); err == nil {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			bufferSize = n
+		}
+	}
+	hubManager := ws.NewHubManager(bufferSize)
 	supervisor := runner.NewSupervisor(store, jvmMgr, hubManager, cfg.ServersPath)
 	backupManager := backup.NewManager(cfg.ServersPath, cfg.BackupsPath, store)
 

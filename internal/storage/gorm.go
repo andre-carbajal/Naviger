@@ -427,3 +427,10 @@ func (s *GormStore) GetPublicLinkByServerID(serverID string) (*domain.PublicLink
 func (s *GormStore) DeletePublicLink(token string) error {
 	return s.db.Delete(&PublicLink{}, "token = ?", token).Error
 }
+
+func (s *GormStore) SetLogBufferSize(size int) error {
+	if size < 0 {
+		return fmt.Errorf("invalid log buffer size: %d", size)
+	}
+	return s.SetSetting("log_buffer_size", fmt.Sprintf("%d", size))
+}

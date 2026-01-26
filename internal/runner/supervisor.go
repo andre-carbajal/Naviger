@@ -194,6 +194,10 @@ func (s *Supervisor) StartServer(serverID string) error {
 		delete(s.processes, id)
 		s.mu.Unlock()
 
+		if s.HubManager != nil {
+			s.HubManager.RemoveHub(id)
+		}
+
 		if err == nil {
 			if uerr := s.Store.UpdateStatus(id, "STOPPED"); uerr != nil {
 				slog.Warn("could not update status to STOPPED", "error", uerr)

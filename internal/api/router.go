@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 type Server struct {
@@ -128,6 +129,8 @@ func (api *Server) CreateHTTPServer(listenAddr string) *http.Server {
 
 	mux.Handle("GET /settings/port-range", protect(api.handleGetPortRange, "admin"))
 	mux.Handle("PUT /settings/port-range", protect(api.handleSetPortRange, "admin"))
+	mux.Handle("GET /settings/log-buffer-size", protect(api.handleGetLogBufferSize, "admin"))
+	mux.Handle("PUT /settings/log-buffer-size", protect(api.handleSetLogBufferSize, "admin"))
 
 	mux.Handle("POST /system/restart", protect(api.handleRestartDaemon, "admin"))
 	mux.Handle("GET /updates", protect(api.handleCheckUpdates, "admin"))
@@ -615,6 +618,48 @@ func (api *Server) handleSetPortRange(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"status": "updated"}`))
+}
+
+func (api *Server) handleGetLogBufferSize(w http.ResponseWriter, r *http.Request) {
+	val, err := api.Store.GetSetting("log_buffer_size")
+	if err != nil {
+		response := map[string]int{"log_buffer_size": api.Config.LogBufferSize}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil {
+		http.Error(w, "invalid stored value for log_buffer_size", http.StatusInternalServerError)
+		return
+	}
+	response := map[string]int{"log_buffer_size": n}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (api *Server) handleSetLogBufferSize(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		LogBufferSize int `json:"log_buffer_size"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if req.LogBufferSize < 0 {
+		http.Error(w, "log_buffer_size must be >= 0", http.StatusBadRequest)
+		return
+	}
+	if err := api.Store.SetLogBufferSize(req.LogBufferSize); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if api.HubManager != nil {
+		api.HubManager.SetDefaultHistorySize(req.LogBufferSize)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"updated"}`))
 }
 
 func (api *Server) handleConsole(w http.ResponseWriter, r *http.Request) {

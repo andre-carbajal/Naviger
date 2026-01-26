@@ -20,17 +20,34 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 	stop       chan bool
+
+	history        [][]byte
+	maxHistory     int
+	clearHistory   chan struct{}
+	setHistorySize chan int
 }
 
-func NewHub() *Hub {
-	return &Hub{
-		broadcast:  make(chan []byte),
-		Commands:   make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
-		stop:       make(chan bool),
+func NewHubWithHistorySize(maxHistory int) *Hub {
+	if maxHistory < 0 {
+		maxHistory = 0
 	}
+	h := &Hub{
+		broadcast:      make(chan []byte),
+		Commands:       make(chan []byte),
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		clients:        make(map[*Client]bool),
+		stop:           make(chan bool),
+		maxHistory:     maxHistory,
+		clearHistory:   make(chan struct{}, 1),
+		setHistorySize: make(chan int, 1),
+	}
+	if maxHistory > 0 {
+		h.history = make([][]byte, 0, maxHistory)
+	} else {
+		h.history = nil
+	}
+	return h
 }
 
 func (h *Hub) Run() {
@@ -38,12 +55,33 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
+
+			if h.maxHistory > 0 && len(h.history) > 0 {
+				backlog := append([][]byte(nil), h.history...)
+				go func(c *Client, b [][]byte) {
+					for _, msg := range b {
+						select {
+						case c.send <- msg:
+						default:
+							return
+						}
+					}
+				}(client, backlog)
+			}
+
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
 			}
 		case message := <-h.broadcast:
+			if h.maxHistory > 0 {
+				h.history = append(h.history, message)
+				if len(h.history) > h.maxHistory {
+					h.history = h.history[1:]
+				}
+			}
+
 			for client := range h.clients {
 				select {
 				case client.send <- message:
@@ -52,10 +90,35 @@ func (h *Hub) Run() {
 					delete(h.clients, client)
 				}
 			}
+
+		case newSize := <-h.setHistorySize:
+			if newSize <= 0 {
+				h.maxHistory = 0
+				h.history = nil
+			} else {
+				if h.history == nil {
+					h.history = make([][]byte, 0, newSize)
+				} else {
+					if len(h.history) > newSize {
+						h.history = h.history[len(h.history)-newSize:]
+					}
+					if cap(h.history) < newSize {
+						newHist := make([][]byte, len(h.history), newSize)
+						copy(newHist, h.history)
+						h.history = newHist
+					}
+				}
+				h.maxHistory = newSize
+			}
+
+		case <-h.clearHistory:
+			h.history = nil
+
 		case <-h.stop:
 			for client := range h.clients {
 				close(client.send)
 			}
+			h.history = nil
 			return
 		}
 	}
@@ -63,6 +126,24 @@ func (h *Hub) Run() {
 
 func (h *Hub) Stop() {
 	close(h.stop)
+}
+
+func (h *Hub) ClearLogs() {
+	select {
+	case h.clearHistory <- struct{}{}:
+	default:
+	}
+}
+
+func (h *Hub) SetHistorySize(size int) {
+	if size < 0 {
+		size = 0
+	}
+	select {
+	case h.setHistorySize <- size:
+	default:
+		go func() { h.setHistorySize <- size }()
+	}
 }
 
 func (h *Hub) Broadcast(message []byte) {
