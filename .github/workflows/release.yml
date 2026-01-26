@@ -56,6 +56,8 @@ jobs:
       - name: Build (Windows)
         if: runner.os == 'Windows'
         run: .\build.bat
+        env:
+          CGO_ENABLED: 1
         shell: cmd
 
       - name: Set MYAPP_VERSION (Windows, strip v)
