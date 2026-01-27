@@ -1,1 +1,1 @@
-- Now you can save the server logs; by default, 1000 lines will be saved. This can be configured in the settings section.
+- Add address copy button

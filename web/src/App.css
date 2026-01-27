@@ -1281,3 +1281,79 @@ nav {
     justify-content: center;
     gap: 8px;
 }
+
+.address-copy-btn {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    overflow: visible;
+    transition: none;
+}
+
+.address-copy-btn:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.address-copy-btn:focus {
+    outline: 2px solid rgba(100, 108, 255, 0.18);
+    outline-offset: 2px;
+}
+
+.address-copy-btn.copied {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.25);
+    color: var(--primary);
+}
+
+.address-copy-btn[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20, 20, 20, 0.95);
+    color: #e6e6e6;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    z-index: 30;
+}
+
+.address-copy-btn[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 8px;
+    height: 8px;
+    background: rgba(20,20,20,0.95);
+    z-index: 29;
+    opacity: 0;
+}
+
+.address-copy-btn[data-tooltip]:hover::after,
+.address-copy-btn[data-tooltip]:focus::after {
+    opacity: 1;
+}
+
+.address-copy-btn[data-tooltip]:hover::before,
+.address-copy-btn[data-tooltip]:focus::before {
+    opacity: 1;
+}
+
+@media (max-width: 640px) {
+    .address-copy-btn[data-tooltip]::after { bottom: 40px; font-size: 11px; }
+}

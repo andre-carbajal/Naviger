@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Play, Square, Terminal, Trash2} from 'lucide-react';
+import {Check, Copy, Play, Square, Terminal, Trash2} from 'lucide-react';
 import {Link} from 'react-router-dom';
 import type {Server, ServerStats} from '../types';
 import {Button} from './ui/Button';
@@ -18,6 +18,49 @@ interface ServerListItemProps {
 const ServerListItem: React.FC<ServerListItemProps> = ({server, stats, onStart, onStop, onDelete}) => {
     const {user} = useAuth();
     const [iconError, setIconError] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const hostIp = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const address = `${hostIp}:${server.port}`;
+
+    const fallbackCopy = (text: string) => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            return true;
+        } catch (e) {
+            document.body.removeChild(ta);
+            console.error('Fallback copy failed', e);
+            return false;
+        }
+    };
+
+    const handleCopyAddress = async () => {
+        let success: boolean;
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(address);
+                success = true;
+            } else {
+                success = fallbackCopy(address);
+            }
+        } catch (err) {
+            console.error('Copy failed', err);
+            success = fallbackCopy(address);
+        }
+
+        if (success) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1200);
+        }
+    };
 
     if (server.status === 'CREATING') {
         return (
@@ -71,6 +114,33 @@ const ServerListItem: React.FC<ServerListItemProps> = ({server, stats, onStart, 
                     </div>
                     <div className="server-meta">
                         {server.loader} {server.version}
+                    </div>
+
+                    <div className="server-meta">
+                        <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={handleCopyAddress}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleCopyAddress();
+                                }
+                            }}
+                            aria-label="Copiar dirección"
+                            className="address-text"
+                        >
+                            {address}
+                        </span>
+
+                        <button
+                            onClick={handleCopyAddress}
+                            aria-label="Copiar dirección"
+                            type="button"
+                            className={`address-copy-btn ${copied ? 'copied' : ''}`}
+                        >
+                            {copied ? <Check size={14}/> : <Copy size={14}/>}
+                        </button>
                     </div>
                 </div>
             </div>
