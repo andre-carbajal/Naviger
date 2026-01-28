@@ -26,6 +26,8 @@ type Client struct {
 
 	conn *websocket.Conn
 
+	replay chan []byte
+
 	send chan []byte
 }
 
@@ -57,6 +59,43 @@ func (c *Client) writePump() {
 		c.conn.Close()
 	}()
 	for {
+		for {
+			select {
+			case message, ok := <-c.replay:
+				if !ok {
+					c.replay = nil
+					break
+				}
+				c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+				w, err := c.conn.NextWriter(websocket.TextMessage)
+				if err != nil {
+					return
+				}
+				w.Write(message)
+
+				for {
+					n := len(c.replay)
+					for i := 0; i < n; i++ {
+						w.Write(newline)
+						w.Write(<-c.replay)
+					}
+					n2 := len(c.send)
+					for i := 0; i < n2; i++ {
+						w.Write(newline)
+						w.Write(<-c.send)
+					}
+
+					if err := w.Close(); err != nil {
+						return
+					}
+					break
+				}
+			default:
+				goto NORMAL
+			}
+		}
+
+	NORMAL:
 		select {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))

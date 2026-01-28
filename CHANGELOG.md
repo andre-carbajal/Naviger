@@ -1,1 +1,2 @@
 - Add address copy button
+- Fixing issue with console 

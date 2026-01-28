@@ -3,6 +3,7 @@ package ws
 import (
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -25,6 +26,10 @@ type Hub struct {
 	maxHistory     int
 	clearHistory   chan struct{}
 	setHistorySize chan int
+
+	snapshotRequests chan *Client
+
+	mu sync.RWMutex
 }
 
 func NewHubWithHistorySize(maxHistory int) *Hub {
@@ -32,15 +37,16 @@ func NewHubWithHistorySize(maxHistory int) *Hub {
 		maxHistory = 0
 	}
 	h := &Hub{
-		broadcast:      make(chan []byte),
-		Commands:       make(chan []byte),
-		register:       make(chan *Client),
-		unregister:     make(chan *Client),
-		clients:        make(map[*Client]bool),
-		stop:           make(chan bool),
-		maxHistory:     maxHistory,
-		clearHistory:   make(chan struct{}, 1),
-		setHistorySize: make(chan int, 1),
+		broadcast:        make(chan []byte, 4096),
+		Commands:         make(chan []byte),
+		register:         make(chan *Client),
+		unregister:       make(chan *Client),
+		clients:          make(map[*Client]bool),
+		stop:             make(chan bool),
+		maxHistory:       maxHistory,
+		clearHistory:     make(chan struct{}, 1),
+		setHistorySize:   make(chan int, 1),
+		snapshotRequests: make(chan *Client, 8),
 	}
 	if maxHistory > 0 {
 		h.history = make([][]byte, 0, maxHistory)
@@ -50,43 +56,72 @@ func NewHubWithHistorySize(maxHistory int) *Hub {
 	return h
 }
 
+func (h *Hub) GetHistorySnapshot() [][]byte {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if h.history == nil || len(h.history) == 0 {
+		return nil
+	}
+	copyHist := make([][]byte, len(h.history))
+	copy(copyHist, h.history)
+	return copyHist
+}
+
 func (h *Hub) Run() {
 	for {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
 
-			if h.maxHistory > 0 && len(h.history) > 0 {
-				backlog := append([][]byte(nil), h.history...)
-				go func(c *Client, b [][]byte) {
-					for _, msg := range b {
-						select {
-						case c.send <- msg:
-						default:
-							return
-						}
-					}
-				}(client, backlog)
-			}
-
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
+				if client.replay != nil {
+					close(client.replay)
+				}
 			}
+
+		case client := <-h.snapshotRequests:
+			h.mu.RLock()
+			if h.history != nil && len(h.history) > 0 {
+				copyHist := make([][]byte, len(h.history))
+				copy(copyHist, h.history)
+				h.mu.RUnlock()
+				if client.replay == nil {
+					client.replay = make(chan []byte, len(copyHist))
+				}
+				for _, msg := range copyHist {
+					select {
+					case client.replay <- msg:
+					default:
+						client.replay <- msg
+					}
+				}
+			} else {
+				h.mu.RUnlock()
+			}
+			h.clients[client] = true
+
 		case message := <-h.broadcast:
+			msgCopy := append([]byte(nil), message...)
 			if h.maxHistory > 0 {
-				h.history = append(h.history, message)
+				h.mu.Lock()
+				h.history = append(h.history, msgCopy)
 				if len(h.history) > h.maxHistory {
 					h.history = h.history[1:]
 				}
+				h.mu.Unlock()
 			}
 
 			for client := range h.clients {
 				select {
-				case client.send <- message:
+				case client.send <- msgCopy:
 				default:
 					close(client.send)
+					if client.replay != nil {
+						close(client.replay)
+					}
 					delete(h.clients, client)
 				}
 			}
@@ -94,8 +129,11 @@ func (h *Hub) Run() {
 		case newSize := <-h.setHistorySize:
 			if newSize <= 0 {
 				h.maxHistory = 0
+				h.mu.Lock()
 				h.history = nil
+				h.mu.Unlock()
 			} else {
+				h.mu.Lock()
 				if h.history == nil {
 					h.history = make([][]byte, 0, newSize)
 				} else {
@@ -109,16 +147,21 @@ func (h *Hub) Run() {
 					}
 				}
 				h.maxHistory = newSize
+				h.mu.Unlock()
 			}
 
 		case <-h.clearHistory:
+			h.mu.Lock()
 			h.history = nil
+			h.mu.Unlock()
 
 		case <-h.stop:
 			for client := range h.clients {
 				close(client.send)
 			}
+			h.mu.Lock()
 			h.history = nil
+			h.mu.Unlock()
 			return
 		}
 	}
@@ -147,12 +190,7 @@ func (h *Hub) SetHistorySize(size int) {
 }
 
 func (h *Hub) Broadcast(message []byte) {
-	go func() {
-		select {
-		case h.broadcast <- message:
-		default:
-		}
-	}()
+	h.broadcast <- message
 }
 
 func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
@@ -161,9 +199,14 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: h, conn: conn, send: make(chan []byte, 256)}
-	client.hub.register <- client
+	client := &Client{hub: h, conn: conn, send: make(chan []byte, 256), replay: nil}
 
 	go client.writePump()
 	go client.readPump()
+
+	select {
+	case h.snapshotRequests <- client:
+	default:
+		go func() { h.snapshotRequests <- client }()
+	}
 }
