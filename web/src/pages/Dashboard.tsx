@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Cpu, HardDrive, MemoryStick, Plus, Server as ServerIcon} from 'lucide-react';
 import ServerListItem from '../components/ServerListItem';
 import CreateModal from '../components/CreateModal';
@@ -14,25 +14,12 @@ const Dashboard: React.FC = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [serverToDelete, setServerToDelete] = useState<string | null>(null);
     const [allStats, setAllStats] = useState<Record<string, ServerStats>>({});
-    const [systemStats, setSystemStats] = useState({cpu: 0, ram: 0, disk: 0});
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
                 const res = await api.getAllServerStats();
                 setAllStats(res.data);
-
-                let totalCpu = 0;
-                let totalRam = 0;
-                let totalDisk = 0;
-
-                Object.values(res.data).forEach(s => {
-                    totalCpu += s.cpu;
-                    totalRam += s.ram;
-                    totalDisk += s.disk;
-                });
-
-                setSystemStats({cpu: totalCpu, ram: totalRam, disk: totalDisk});
             } catch (error) {
                 console.error("Failed to fetch server stats", error);
             }
@@ -42,6 +29,23 @@ const Dashboard: React.FC = () => {
         const interval = setInterval(fetchStats, 2000);
         return () => clearInterval(interval);
     }, []);
+
+    const systemStats = useMemo(() => {
+        let totalCpu = 0;
+        let totalRam = 0;
+        let totalDisk = 0;
+
+        servers.forEach(server => {
+            const stats = allStats[server.id];
+            if (stats) {
+                totalCpu += stats.cpu;
+                totalRam += stats.ram;
+                totalDisk += stats.disk;
+            }
+        });
+
+        return {cpu: totalCpu, ram: totalRam, disk: totalDisk};
+    }, [servers, allStats]);
 
     const handleDelete = (id: string) => {
         setServerToDelete(id);
@@ -67,7 +71,6 @@ const Dashboard: React.FC = () => {
                 </Button>
             </div>
 
-            {/* System Status Summary */}
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
